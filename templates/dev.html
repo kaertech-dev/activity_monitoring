@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Today’s Records</title>
+    <style>
+        body { font-family: Arial; background: #f0f0f0; padding: 20px; }
+        h2 { color: #333; }
+        .db-block { background: #fff; padding: 15px; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 0 8px #ccc; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #999; padding: 5px; text-align: left; }
+        th { background: #eee; }
+    </style>
+</head>
+<body>
+    <h1>Records from Today ({{ current_date }})</h1>
+    {% for db, tables in all_data.items() %}
+        <div class="db-block">
+            <h2>Database: {{ db }}</h2>
+            {% for table, data in tables.items() %}
+                <h3>Table: {{ table }}</h3>
+                <p><em>Filtered by column: <strong>{{ data.date_column }}</strong></em></p>
+                <table>
+                    <tr>
+                        {% for col in data.columns %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                    {% for row in data.rows %}
+                        <tr>
+                            {% for item in row %}
+                                <td>{{ item }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </table>
+            {% endfor %}
+        </div>
+    {% endfor %}
+</body>
+</html>

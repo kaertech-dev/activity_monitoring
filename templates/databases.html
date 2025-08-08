@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>All Databases, Tables, and Data</title>
+    <style>
+        body { font-family: Arial; background: #f0f0f0; padding: 20px; }
+        h2 { color: #333; }
+        .db-block { background: #fff; padding: 15px; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 0 8px #ccc; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #999; padding: 5px; text-align: left; }
+        th { background: #eee; }
+    </style>
+</head>
+<body>
+    <h1>All Databases, Tables, and Sample Data</h1>
+    {% for db, tables in all_data.items() %}
+        <div class="db-block">
+            <h2>Database: {{ db }}</h2>
+            {% for table, data in tables.items() %}
+            {% if data.date_filtered %}
+                <p><em>Showing today’s data only ({{ current_date }}).</em></p>
+            {% endif %}
+                <h3>Table: {{ table }}</h3>
+                {% if data.error %}
+                    <p><strong>Error:</strong> {{ data.error }}</p>
+                {% elif data.rows %}
+                    <table>
+                        <tr>
+                            {% for col in data.columns %}
+                                <th>{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+                        {% for row in data.rows %}
+                            <tr>
+                                {% for item in row %}
+                                    <td>{{ item }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </table>
+                {% else %}
+                    <p>No data available.</p>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endfor %}
+</body>
+</html>

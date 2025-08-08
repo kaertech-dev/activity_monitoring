@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="300">
+    <!--<link rel="icon" type="image/jpg" href="kaertech.png">
+    <img href="image/kaertech.png" alt="kaertech" width="200" height="100">-->
+    <title>Activity Monitoring</title>
+    <style>
+        img {
+            border: 2px solid black;
+            border-radius: 10px;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-family: 'Cambria Math', Times, serif;
+            font-size: 50px;
+            font: bold;
+        }
+        h2{
+            font-family: 'Cambria Math', serif;
+            font-size: 60px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            background-color: #fff;
+            
+        }
+        td:hover, th:hover{
+            transform: scale(1.2);
+            background-color: #98ff98;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            z-index: 1;
+            position: relative;
+        } 
+        th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #ffffff;
+            font-size: 40px;
+            font-family: 'Daytona';
+            font: bold;
+            font-weight: bolder;
+            transition: transform 0.3s ease, background-color 0.3 ease;
+        }
+        /* Alternate row colors */
+        tr:nth-child(even) {
+        background-color: hsla(120, 100%, 92%, 0.3);
+        
+        }
+
+        tr:nth-child(odd) {
+        background-color: #ffffff;
+        }
+        .square {
+            height: 35px;
+            width: 50px;
+            border: 50%;
+            display: inline-block;
+        }
+
+        .green {
+            background-color: green;
+        }
+
+        .red {
+            background-color: red;
+        }
+        th {
+            background-color: #27c033;
+            color: #fff;
+            font-size: 40px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #777;
+        }
+        @media screen and (max-width: 768px) {
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+            th {
+                display: none;
+            }
+            td {
+                position: relative;
+                padding-left: 50%;
+                text-align: left;
+                font-family: 'Times New Roman', Times, serif;
+            }
+            td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 15px;
+                font-weight: bold;
+                color: #333;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!--<img src="kaerteck.png" alt="Kaertech" width="200" height="100">-->
+<h1>Activity Monitoring for Today ({{ current_date }})</h1>
+
+{% if rows %}
+    <div class="db-block">
+        <h2>Operator Summary for {{ current_date }}</h2>
+        <table>
+        <thead>
+            <tr>
+            {% for col in columns %}
+                <th>{{ col }}</th>
+            {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% for val in row %}
+                    {% set idx = loop.index0 %}
+                    <td>
+                        {% if columns[idx] == 'Status' %}
+                            {% if val == 'ON TARGET' %}
+                                <span class="square green" title="ON TARGET"></span>
+                            {% else %}
+                                <span class="square red" title="BELOW TARGET"></span>
+                            {% endif %}
+                        {% else %}
+                            {{ val }}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+{% else %}
+    <p><strong>No records with <code>operator_en</code> found for today.</strong></p>
+{% endif %}
+</body>
+</html>
