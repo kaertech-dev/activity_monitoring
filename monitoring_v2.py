@@ -47,7 +47,7 @@ def fetch_operator_en_today():
         cursor.execute(f"USE `{db}`")
         cursor.execute("SHOW TABLES")
         tables = [tbl [0] for tbl in cursor.fetchall()]
-
+        #print
         for table in tables:
             try:
                 cursor.execute(f"DESCRIBE `{table}`")
