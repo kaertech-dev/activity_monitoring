@@ -11,11 +11,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
-#from PIL import Image, ImageDraw
-#from colorama import Fore, Style, init
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 # Allow CORS if you need cross-origin access from your LAN
@@ -101,18 +98,6 @@ def fetch_operator_en_today():
                     #Random Numbers
                     Target_Output = random.randint(20, 150)
                     status = "ON TARGET" if Target_Output <= current_output else "BELOW TARGET"
-                    #status = Image.new("RGB", (200,100), "WHITE")
-                    #draw = ImageDraw.Draw(status)
-                    #if Target_Output != current_output:
-                    #    draw.ellipse((20,20,80,80), fill= 'red')
-                    #else:
-                    #    draw.ellipse((120,20,180,80), fill='green')
-                    #init(autoreset=True)
-                    #status = 0
-                    #if Target_Output <= current_output:
-                        #return status.Fore.GREEN
-                    #else:
-                        #status.Fore.RED
                     # Calculate durations between consecutive records
                     durations = []
                     for i in range(1, len(timestamps)):
@@ -189,6 +174,3 @@ async def api_operator_today():
         "count": len(all_data),
         "records": all_data
     }
-
-#if __name__ == "__main__":
-#    app.run(debug=True)
