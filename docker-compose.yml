@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  monitoring_app:
+    image: monitoring_v2
+    container_name: monitoring_app
+    ports:
+      - "5000:5000"
+    restart: always

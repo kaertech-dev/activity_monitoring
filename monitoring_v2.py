@@ -69,7 +69,7 @@ def fetch_operator_en_today():
                 query = f"""
                     SELECT 
                         operator_en, 
-                        COUNT(DISTINCT serial_num) as Current_Output, 
+                        COUNT(DISTINCT serial_num) as Output, 
                         MIN(`{date_column}`) as start_time,
                         MAX(`{date_column}`) as end_time,
                         TIMESTAMPDIFF(HOUR, MIN(`{date_column}`), NOW()) as duration_hours
@@ -83,7 +83,7 @@ def fetch_operator_en_today():
 
                 # For each operator_en, compute Duration_Per_Output (3 lowest)
                 for row in rows:
-                    operator_en, current_output, start_time, end_time, duration_hours = row
+                    operator_en, output, start_time, end_time, duration_hours = row
 
                     # Fetch all timestamps for this operator today
                     cursor.execute(f"""
@@ -97,7 +97,7 @@ def fetch_operator_en_today():
                     timestamps = [r[0] for r in cursor.fetchall()]
                     #Random Numbers
                     Target_Output = random.randint(20, 150)
-                    status = "ON TARGET" if Target_Output <= current_output else "BELOW TARGET"
+                    status = "ON TARGET" if Target_Output <= output else "BELOW TARGET"
                     # Calculate durations between consecutive records
                     durations = []
                     for i in range(1, len(timestamps)):
@@ -111,14 +111,14 @@ def fetch_operator_en_today():
                     modes = np.round(durations, 2)
                     modes_results = stats.mode(modes, keepdims=False)
                     mode_value = float(modes_results.mode)
-                    #duration_per_unit = round(duration_hours / current_output, 2) if current_output else 0
+                    #duration_per_unit = round(duration_hours / output, 2) if output else 0
 
                     all_data.append({
                         'Customer': db,
                         'Project': table,
                         'operator_en': operator_en,
-                        'Target_Output': Target_Output,
-                        'Current_Output': current_output,
+                        'Target(s)': Target_Output,
+                        'Output': output,
                         'Process_Time(s)': avg_3_shortest,
                         'Start_Time': str(start_time),
                         'End_time': str(end_time),
@@ -139,7 +139,7 @@ def download_csv():
     all_data, today_str = fetch_operator_en_today()
 
     # Define columns in the same order as your HTML table
-    columns = ['Customer', 'Project', 'operator_en', 'Target_Output', 'Current_Output', 'Process_Time(s)', 'Start_Time', 'End_time', 'Status']
+    columns = ['Customer', 'Project', 'operator_en', 'Target(s)', 'Output', 'Process_Time(s)', 'Start_Time', 'End_time', 'Status']
     
     # Convert to DataFrame
     df = pd.DataFrame(all_data, columns=columns)
@@ -157,7 +157,7 @@ def download_csv():
 @app.get("/", response_class=HTMLResponse)
 async def show_operator_en_today(request: Request):
     all_data, today_str = fetch_operator_en_today()
-    columns = ['Customer', 'Project', 'operator_en','Target_Output', 'Current_Output', 'Process_Time(s)', 'Start_Time', 'End_time', 'Status']
+    columns = ['Customer', 'Project', 'operator_en','Target(s)', 'Output', 'Process_Time(s)', 'Start_Time', 'End_time', 'Status']
     rows = [tuple(d[col] for col in columns) for d in all_data]
     return templates.TemplateResponse("monitoring_v2.html", {
         "request": request,
@@ -174,3 +174,6 @@ async def api_operator_today():
         "count": len(all_data),
         "records": all_data
     }
+
+#if __name__ == "__main__":
+#    app.run(host = "0.0.0.0", port=5000)

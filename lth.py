@@ -1,11 +1,9 @@
-import numpy as np
-from scipy import stats
+import pandas as pd
 
-# Sample data
-data = np.array([1, 2, 2, 3, 4, 4, 4, 5])
+list = {
+    'list': ["banana", "apple", "mango"],
+    'data': [5, 3, 7]
+}
 
-# Calculate mode
-mode_result = stats.mode(data)
-
-print("Mode:", mode_result.mode)
-print("Frequency:", mode_result.count)
+myvar = pd.DataFrame(list)
+print(myvar)
