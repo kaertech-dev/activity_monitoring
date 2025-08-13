@@ -6,4 +6,5 @@ list = {
 }
 
 myvar = pd.DataFrame(list, index= ('day', 'day2','day3'))
+
 print(myvar.loc['day2'])

@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Query
 from scipy import stats
 from datetime import datetime
 
@@ -30,7 +31,7 @@ DB_CONFIG = {
     'password': 'kts@tsd2025'
 }
 
-def fetch_operator_en_today():
+def fetch_operator_data(start_date: str, end_date: str):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
@@ -38,7 +39,6 @@ def fetch_operator_en_today():
     databases = [db[0] for db in cursor.fetchall()]
 
     all_data = []
-    today_str = datetime.now().strftime('%Y-%m-%d')
 
     for db in databases:
         cursor.execute(f"USE `{db}`")
@@ -73,11 +73,11 @@ def fetch_operator_en_today():
                         MAX(`{date_column}`) as end_time,
                         TIMESTAMPDIFF(HOUR, MIN(`{date_column}`), NOW()) as duration_hours
                     FROM `{db}`.`{table}`
-                    WHERE DATE(`{date_column}`) = CURDATE()
+                    WHERE DATE(`{date_column}`) BETWEEN %s AND %s
                     AND `status` = 1
                     GROUP BY operator_en
                 """
-                cursor.execute(query)
+                cursor.execute(query, (start_date, end_date))
                 rows = cursor.fetchall()
 
                 for row in rows:
@@ -86,11 +86,11 @@ def fetch_operator_en_today():
                     cursor.execute(f"""
                         SELECT `{date_column}`
                         FROM `{db}`.`{table}`
-                        WHERE DATE(`{date_column}`) = CURDATE() 
+                        WHERE DATE(`{date_column}`) BETWEEN %s AND %s
                         AND operator_en = %s
                         AND `status` = 1
                         ORDER BY `{date_column}`
-                    """, (operator_en,))
+                    """, (start_date, end_date, operator_en))
                     timestamps = [r[0] for r in cursor.fetchall()]
 
                     Target_Output = random.randint(20, 150)
@@ -104,8 +104,7 @@ def fetch_operator_en_today():
 
                     durations.sort()
                     avg_3_shortest = round(sum(durations[:3]) / 3, 2) if len(durations) >= 3 else 0
-
-                    # Mode calculation only if we have data
+                    #Mode calculation
                     if durations:
                         modes = np.round(durations, 2)
                         modes_results = stats.mode(modes, keepdims=False)
@@ -122,8 +121,7 @@ def fetch_operator_en_today():
                         'Process_Time(s)': avg_3_shortest,
                         'Start_Time': str(start_time),
                         'End_time': str(end_time),
-                        'Status': status,
-                        # 'Status_modes': mode_value
+                        'Status': status
                     })
 
             except mysql.connector.Error:
@@ -131,38 +129,46 @@ def fetch_operator_en_today():
 
     cursor.close()
     conn.close()
-    return all_data, today_str
-
-@app.get("/download-csv")
-def download_csv():
-    all_data, today_str = fetch_operator_en_today()
-
-    # Define columns in the same order as your HTML table
-    columns = ['Customer', 'Project', 'operator_en', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(all_data, columns=columns)
-
-    # Convert DataFrame to CSV in memory
-    stream = StringIO()
-    df.to_csv(stream, index=False)
-    stream.seek(0)
-
-    # Return CSV as downloadable response
-    return StreamingResponse(stream, media_type="text/csv", headers={
-        "Content-Disposition": f"attachment; filename=operator_data_{today_str}.csv"
-    })
+    return all_data
 
 @app.get("/", response_class=HTMLResponse)
-async def show_operator_en_today(request: Request):
-    all_data, today_str = fetch_operator_en_today()
+async def show_operator_en_today(
+    request: Request,
+    start_date: str = Query(default=datetime.now().strftime('%Y-%m-%d')),
+    end_date: str = Query(default=datetime.now().strftime('%Y-%m-%d')),
+    sort_by: str = Query(default="none")  # NEW
+):
+    all_data = fetch_operator_data(start_date, end_date)
+
+    if sort_by == "az":
+        all_data.sort(key=lambda x: x["operator_en"])
+    elif sort_by == "za":
+        all_data.sort(key=lambda x: x["operator_en"], reverse=True)
+    elif sort_by == "time":
+        all_data.sort(key=lambda x: x["Start_Time"])
+
     columns = ['Customer', 'Project', 'operator_en', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
     rows = [tuple(d[col] for col in columns) for d in all_data]
+
     return templates.TemplateResponse("monitoring_v2.html", {
         "request": request,
         "rows": rows,
         "columns": columns,
-        "current_date": today_str
+        "current_date": f"{start_date} → {end_date}",
+        "sort_by": sort_by  # pass to template so selected option stays
+    })
+
+
+@app.get("/download-csv")
+def download_csv(start_date: str = Query(...), end_date: str = Query(...)):
+    all_data = fetch_operator_data(start_date, end_date)
+    columns = ['Customer', 'Project', 'operator_en', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
+    df = pd.DataFrame(all_data, columns=columns)
+    stream = StringIO()
+    df.to_csv(stream, index=False)
+    stream.seek(0)
+    return StreamingResponse(stream, media_type="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=operator_data_{start_date}_to_{end_date}.csv"
     })
 
 @app.get("/api/operator_today", response_class=JSONResponse)
@@ -173,6 +179,7 @@ async def api_operator_today():
         "count": len(all_data),
         "records": all_data
     }
+
 
 #if __name__ == "__main__":
 #    app.run(host = "0.0.0.0", port=5000)

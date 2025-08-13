@@ -1,0 +1,233 @@
+img {
+    border: 2px solid black;
+    border-radius: 10px;
+}
+
+img.logo {
+    position: absolute;
+    top: 20px;
+    right: 0px;
+    width: 200px;
+    height: auto;
+    border: none;
+    border-radius: 10px;
+}
+
+.logo-wrapper {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 0;
+}
+
+.logo-wrapper img {
+    width: 200px;
+    height: auto;
+    border: none;
+    border-radius: 10px;
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 20px;
+    background-color: #f0f2f5;
+    color: #333;
+}
+
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    font-family: 'Cambria Math', Times, serif;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+h2 {
+    font-family: 'Cambria Math', serif;
+    font-size: 20px;
+    margin-top: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 25px auto;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    background-color: #fff;
+    border-radius: 20px;
+    font-size: 1rem;
+}
+
+td:hover, th:hover {
+    transform: scale(1.2);
+    background-color: #98ff98;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+    position: relative;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: center;
+    border-bottom: 1px solid #ffffff;
+    font-size: 20px;
+    font-family: 'Daytona';
+    font-weight: bolder;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+tr:nth-child(even) {
+    background-color: hsla(120, 100%, 92%, 0.3);
+}
+
+tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.square {
+    height: 35px;
+    width: 50px;
+    display: inline-block;
+}
+
+.green {
+    background-color: green;
+}
+
+.red {
+    background-color: red;
+}
+
+th {
+    background-color: #27c033;
+    color: #fff;
+    font-size: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    color: #777;
+}
+
+.download-btn-wrapper {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.download-btn {
+    padding: 12px 54px;
+    font-size: 20px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.filter-form label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 1.2rem;
+}
+
+.filter-form select {
+    padding: 12px;
+    height: 50px;
+    font-size: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+.filter-btn {
+    padding: 8px 20px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+label {
+    font-size: 20px;
+}
+
+.action-btn {
+    padding: 12px 54px;
+    font-size: 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    color: white;
+}
+@media (max-width: 600px) {
+    .filter-form {
+        display: flex;
+        flex-direction: column;
+    }
+    .filter-form label {
+        margin-bottom: 10px;
+    }
+    .filter-form {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+}
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+    .filter-form input[type="date"],
+    .filter-form button {
+        font-size: 1rem;
+        padding: 0.5rem;
+    }
+
+    table, thead, tbody, th, td, tr {
+        display: block;
+    }
+
+    th {
+        display: none;
+    }
+
+    td {
+        position: relative;
+        padding-left: 50%;
+        text-align: left;
+        font-family: 'Times New Roman', Times, serif;
+    }
+
+    td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 15px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    table th, table td {
+        font-size: 0.9rem;
+        padding: 8px;
+    }
+}
