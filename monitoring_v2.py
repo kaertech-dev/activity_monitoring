@@ -5,12 +5,12 @@ import pandas as pd
 from io import StringIO
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
-from scipy import stats
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+from scipy import stats
+from datetime import datetime
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -43,8 +43,8 @@ def fetch_operator_en_today():
     for db in databases:
         cursor.execute(f"USE `{db}`")
         cursor.execute("SHOW TABLES")
-        tables = [tbl [0] for tbl in cursor.fetchall()]
-        #print
+        tables = [tbl[0] for tbl in cursor.fetchall()]
+
         for table in tables:
             try:
                 cursor.execute(f"DESCRIBE `{table}`")
@@ -65,7 +65,6 @@ def fetch_operator_en_today():
                 if not date_column:
                     continue
 
-                # Main grouped query
                 query = f"""
                     SELECT 
                         operator_en, 
@@ -81,11 +80,9 @@ def fetch_operator_en_today():
                 cursor.execute(query)
                 rows = cursor.fetchall()
 
-                # For each operator_en, compute Duration_Per_Output (3 lowest)
                 for row in rows:
                     operator_en, output, start_time, end_time, duration_hours = row
 
-                    # Fetch all timestamps for this operator today
                     cursor.execute(f"""
                         SELECT `{date_column}`
                         FROM `{db}`.`{table}`
@@ -95,23 +92,26 @@ def fetch_operator_en_today():
                         ORDER BY `{date_column}`
                     """, (operator_en,))
                     timestamps = [r[0] for r in cursor.fetchall()]
-                    #Random Numbers
+
                     Target_Output = random.randint(20, 150)
                     status = "ON TARGET" if Target_Output <= output else "BELOW TARGET"
-                    # Calculate durations between consecutive records
+
                     durations = []
                     for i in range(1, len(timestamps)):
                         diff = (timestamps[i] - timestamps[i-1]).total_seconds()
                         if diff > 0:
                             durations.append(diff)
 
-                    # Get 3 shortest durations and compute average
                     durations.sort()
                     avg_3_shortest = round(sum(durations[:3]) / 3, 2) if len(durations) >= 3 else 0
-                    modes = np.round(durations, 2)
-                    modes_results = stats.mode(modes, keepdims=False)
-                    mode_value = float(modes_results.mode)
-                    #duration_per_unit = round(duration_hours / output, 2) if output else 0
+
+                    # Mode calculation only if we have data
+                    if durations:
+                        modes = np.round(durations, 2)
+                        modes_results = stats.mode(modes, keepdims=False)
+                        mode_value = float(modes_results.mode) if not np.isnan(modes_results.mode) else 0
+                    else:
+                        mode_value = 0
 
                     all_data.append({
                         'Customer': db,
@@ -123,23 +123,22 @@ def fetch_operator_en_today():
                         'Start_Time': str(start_time),
                         'End_time': str(end_time),
                         'Status': status,
-                        #'Status_modes': mode_value
-                        #'Duration_Per_Unit': duration_per_unit
+                        # 'Status_modes': mode_value
                     })
 
             except mysql.connector.Error:
                 continue
-    
-    #status.show()
+
     cursor.close()
     conn.close()
     return all_data, today_str
+
 @app.get("/download-csv")
 def download_csv():
     all_data, today_str = fetch_operator_en_today()
 
     # Define columns in the same order as your HTML table
-    columns = ['Customer', 'Project', 'operator_en', 'Target(s)', 'Output', 'Process_Time(s)', 'Start_Time', 'End_time', 'Status']
+    columns = ['Customer', 'Project', 'operator_en', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
     
     # Convert to DataFrame
     df = pd.DataFrame(all_data, columns=columns)
@@ -157,7 +156,7 @@ def download_csv():
 @app.get("/", response_class=HTMLResponse)
 async def show_operator_en_today(request: Request):
     all_data, today_str = fetch_operator_en_today()
-    columns = ['Customer', 'Project', 'operator_en','Target(s)', 'Output', 'Process_Time(s)', 'Start_Time', 'End_time', 'Status']
+    columns = ['Customer', 'Project', 'operator_en', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
     rows = [tuple(d[col] for col in columns) for d in all_data]
     return templates.TemplateResponse("monitoring_v2.html", {
         "request": request,

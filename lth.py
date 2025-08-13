@@ -1,9 +1,9 @@
 import pandas as pd
 
 list = {
-    'list': ["banana", "apple", "mango"],
-    'data': [5, 3, 7]
+    'calories': [420,150,236],
+    'sugarcoat': [50,25,100]
 }
 
-myvar = pd.DataFrame(list)
-print(myvar)
+myvar = pd.DataFrame(list, index= ('day', 'day2','day3'))
+print(myvar.loc['day2'])
