@@ -70,16 +70,13 @@
         <label>End Date: 
             <input type="date" class="action-end" name="end_date" value="{{ current_date.split(' → ')[1] if '→' in current_date else current_date }}">
         </label>
-        
-        <label>Sort:
-            <select name="sort_by">
-                <option value="none" {% if sort_by == 'none' %}selected{% endif %}>None</option>
-                <option value="az" {% if sort_by == 'az' %}selected{% endif %}>A → Z</option>
-                <option value="za" {% if sort_by == 'za' %}selected{% endif %}>Z → A</option>
-                <option value="time" {% if sort_by == 'time' %}selected{% endif %}>Based on Time</option>
-            </select>
-        </label>
-        
+        <label for="db_name">Select Database:</label>
+        <select name="db_name" id="db_name">
+            <option value="" selected>Select a Database</option>
+            {% for db in databases %}
+                <option value="{{ db }}" {% if db == selected_db %}selected{% endif %}>{{ db }}</option>
+            {% endfor %}
+        </select>
         <button type="submit" class="action-btn filter-btn">Filter</button>
     </form>
 
@@ -116,6 +113,7 @@
     </div>
 {% else %}
     <p><strong>No records found for today.</strong></p>
+    <button onclick="history.back()">Go back</button>
 {% endif %}
 </body>
 </html>

@@ -31,16 +31,22 @@ DB_CONFIG = {
     'password': 'kts@tsd2025'
 }
 
-def fetch_operator_data(start_date: str, end_date: str):
+def fetch_operator_data(start_date: str, end_date: str, db_name: str = None):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
     cursor.execute("SHOW DATABASES")
     databases = [db[0] for db in cursor.fetchall()]
 
+    if db_name and db_name not in databases:
+        raise ValueError(f"Database {db_name} not found")
+
     all_data = []
 
-    for db in databases:
+    # Use the selected database, or all if no specific database is chosen
+    target_databases = [db_name] if db_name else databases
+
+    for db in target_databases:
         cursor.execute(f"USE `{db}`")
         cursor.execute("SHOW TABLES")
         tables = [tbl[0] for tbl in cursor.fetchall()]
@@ -104,7 +110,7 @@ def fetch_operator_data(start_date: str, end_date: str):
 
                     durations.sort()
                     avg_3_shortest = round(sum(durations[:3]) / 3, 2) if len(durations) >= 3 else 0
-                    #Mode calculation
+                    # Mode calculation
                     if durations:
                         modes = np.round(durations, 2)
                         modes_results = stats.mode(modes, keepdims=False)
@@ -129,16 +135,18 @@ def fetch_operator_data(start_date: str, end_date: str):
 
     cursor.close()
     conn.close()
-    return all_data
+    return all_data, databases
 
+#Backend
 @app.get("/", response_class=HTMLResponse)
 async def show_operator_en_today(
     request: Request,
     start_date: str = Query(default=datetime.now().strftime('%Y-%m-%d')),
     end_date: str = Query(default=datetime.now().strftime('%Y-%m-%d')),
-    sort_by: str = Query(default="none")  # NEW
+    sort_by: str = Query(default="none"),
+    db_name: str = Query(default=None)  # Accept the database name as a query parameter
 ):
-    all_data = fetch_operator_data(start_date, end_date)
+    all_data, databases = fetch_operator_data(start_date, end_date, db_name)
 
     if sort_by == "az":
         all_data.sort(key=lambda x: x["operator_en"])
@@ -155,8 +163,11 @@ async def show_operator_en_today(
         "rows": rows,
         "columns": columns,
         "current_date": f"{start_date} → {end_date}",
-        "sort_by": sort_by  # pass to template so selected option stays
+        "sort_by": sort_by,  # pass to template so selected option stays
+        "databases": databases,  # pass database list to the template
+        "selected_db": db_name  # highlight selected database
     })
+
 
 
 @app.get("/download-csv")
@@ -173,7 +184,7 @@ def download_csv(start_date: str = Query(...), end_date: str = Query(...)):
 
 @app.get("/api/operator_today", response_class=JSONResponse)
 async def api_operator_today():
-    all_data, today_str = fetch_operator_en_today()
+    all_data, today_str = fetch_operator_data()
     return {
         "date": today_str,
         "count": len(all_data),
