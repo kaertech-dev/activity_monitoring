@@ -168,19 +168,27 @@ async def show_operator_en_today(
         "selected_db": db_name  # highlight selected database
     })
 
-
-
 @app.get("/download-csv")
 def download_csv(start_date: str = Query(...), end_date: str = Query(...)):
-    all_data = fetch_operator_data(start_date, end_date)
+    all_data, _ = fetch_operator_data(start_date, end_date)
     columns = ['Customer', 'Project', 'operator_en', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
-    df = pd.DataFrame(all_data, columns=columns)
+    
+    # Debugging: Print first record to check the data structure
+    print(f"First record in all_data: {all_data[0] if all_data else 'No data'}")
+    
+    # Ensure the data only contains the correct columns
+    all_data_filtered = [
+        {key: row[key] for key in columns if key in row} for row in all_data
+    ]
+    
+    df = pd.DataFrame(all_data_filtered, columns=columns)
     stream = StringIO()
     df.to_csv(stream, index=False)
     stream.seek(0)
     return StreamingResponse(stream, media_type="text/csv", headers={
         "Content-Disposition": f"attachment; filename=operator_data_{start_date}_to_{end_date}.csv"
     })
+
 
 @app.get("/api/operator_today", response_class=JSONResponse)
 async def api_operator_today():
