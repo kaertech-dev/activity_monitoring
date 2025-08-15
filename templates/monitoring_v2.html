@@ -72,7 +72,7 @@
         </label>
         <label for="db_name">Select Database:</label>
         <select name="db_name" id="db_name">
-            <option value="" selected>Select a Database</option>
+            <option value="" selected>All Database</option>
             {% for db in databases %}
                 <option value="{{ db }}" {% if db == selected_db %}selected{% endif %}>{{ db }}</option>
             {% endfor %}

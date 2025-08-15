@@ -7,8 +7,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
-#from PIL import Image, ImageDraw
-#from colorama import Fore, Style, init
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -41,7 +39,7 @@ def fetch_operator_en_today():
     for db in databases:
         cursor.execute(f"USE `{db}`")
         cursor.execute("SHOW TABLES")
-        tables = [tbl [0] for tbl in cursor.fetchall()]
+        tables = [tbl[0] for tbl in cursor.fetchall()]
 
         for table in tables:
             try:
@@ -93,21 +91,9 @@ def fetch_operator_en_today():
                         ORDER BY `{date_column}`
                     """, (operator_en,))
                     timestamps = [r[0] for r in cursor.fetchall()]
-                    #Random Numbers
                     Target_Output = random.randint(1, 50)
                     status = "ON TARGET" if Target_Output <= current_output else "BELOW TARGET"
-                    #status = Image.new("RGB", (200,100), "WHITE")
-                    #draw = ImageDraw.Draw(status)
-                    #if Target_Output != current_output:
-                    #    draw.ellipse((20,20,80,80), fill= 'red')
-                    #else:
-                    #    draw.ellipse((120,20,180,80), fill='green')
-                    #init(autoreset=True)
-                    #status = 0
-                    #if Target_Output <= current_output:
-                        #return status.Fore.GREEN
-                    #else:
-                        #status.Fore.RED
+
                     # Calculate durations between consecutive records
                     durations = []
                     for i in range(1, len(timestamps)):
@@ -121,26 +107,30 @@ def fetch_operator_en_today():
                     modes = np.round(durations, 2)
                     modes_results = stats.mode(modes, keepdims=False)
                     mode_value = float(modes_results.mode)
-                    #duration_per_unit = round(duration_hours / current_output, 2) if current_output else 0
+
+                    # Split the project name into model and station
+                    project_name = table
+                    if '_' in project_name:
+                        model, station = project_name.split('_', 1)
+                    else:
+                        model, station = project_name, ''
 
                     all_data.append({
                         'Customer': db,
-                        'Project': table,
-                        'operator_en': operator_en,
-                        'Target_Output': Target_Output,
-                        'Current_Output': current_output,
-                        'Duration_Per_Output': f"{avg_3_shortest:.2f}s",
+                        'Model': model,
+                        'Station': station,
+                        'Operator': operator_en,
+                        'Output': current_output,
+                        'Target(s)': Target_Output,
+                        'Process_Time(s)': avg_3_shortest,
                         'Start_Time': str(start_time),
                         'End_time': str(end_time),
                         'Status': status,
-                        #'Status_modes': mode_value
-                        #'Duration_Per_Unit': duration_per_unit
                     })
 
             except mysql.connector.Error:
                 continue
     
-    #status.show()
     cursor.close()
     conn.close()
     return all_data, today_str
@@ -149,7 +139,7 @@ def fetch_operator_en_today():
 @app.get("/", response_class=HTMLResponse)
 async def show_operator_en_today(request: Request):
     all_data, today_str = fetch_operator_en_today()
-    columns = ['Customer', 'Project', 'operator_en','Target_Output', 'Current_Output', 'Duration_Per_Output', 'Start_Time', 'End_time', 'Status']
+    columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
     rows = [tuple(d[col] for col in columns) for d in all_data]
     return templates.TemplateResponse("monitoring_v1.html", {
         "request": request,
@@ -157,6 +147,7 @@ async def show_operator_en_today(request: Request):
         "columns": columns,
         "current_date": today_str
     })
+
 
 @app.get("/api/operator_today", response_class=JSONResponse)
 async def api_operator_today():
@@ -166,6 +157,3 @@ async def api_operator_today():
         "count": len(all_data),
         "records": all_data
     }
-
-#if __name__ == "__main__":
-#    app.run(debug=True)

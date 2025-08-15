@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="300">
-    <!--<link rel="icon" type="image/jpg" href="kaertech.png">
-    <img href="image/kaertech.png" alt="kaertech" width="200" height="100">-->
+    <link rel="icon" type="image/png" href="/static/image.png">
     <title>Activity Monitoring</title>
     <style>
         img {
@@ -35,7 +34,6 @@
             margin-top: 25px auto;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             background-color: #fff;
-            
         }
         td:hover, th:hover{
             transform: scale(1.2);
@@ -52,16 +50,15 @@
             font-family: 'Daytona';
             font: bold;
             font-weight: bolder;
-            transition: transform 0.3s ease, background-color 0.3 ease;
+            transition: transform 0.3s ease, background-color 0.3s ease;
         }
         /* Alternate row colors */
         tr:nth-child(even) {
-        background-color: hsla(120, 100%, 92%, 0.3);
-        
+            background-color: hsla(120, 100%, 92%, 0.3);
         }
 
         tr:nth-child(odd) {
-        background-color: #ffffff;
+            background-color: #ffffff;
         }
         .square {
             height: 35px;
@@ -116,7 +113,7 @@
     </style>
 </head>
 <body>
-    <!--<img src="kaerteck.png" alt="Kaertech" width="200" height="100">-->
+
 <h1>Activity Monitoring for Today ({{ current_date }})</h1>
 
 {% if rows %}
