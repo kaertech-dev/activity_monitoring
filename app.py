@@ -49,7 +49,7 @@ def show_all_data():
                         
                         #f"SELECT * FROM `{table}` WHERE DATE(`{date_column}`) = CURDATE()"
                     else:
-                        query = f"SELECT * FROM `{table}` LIMIT 1000"  # fallback
+                        query = f"SELECT * FROM `{table}` LIMIT 200"  # fallback
 
                     cursor.execute(query)
                     rows = cursor.fetchall()

@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="300">
-    <link rel="icon" type="image/png" href="/static/image.png">
+    <!--<link rel="icon" type="image/png" href="/static/image.png">
+    <link rel="stylesheet" href="/static/monitoring_v1.css">-->
     <title>Activity Monitoring</title>
     <style>
         img {
@@ -118,39 +119,55 @@
 
 {% if rows %}
     <div class="db-block">
-        <h2>Operator Summary for {{ current_date }}</h2>
+        <!--<h2>Operator Summary for {{ current_date }}</h2>-->
         <table>
-        <thead>
-            <tr>
-            {% for col in columns %}
-                <th>{{ col }}</th>
-            {% endfor %}
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in rows %}
-            <tr>
-                {% for val in row %}
-                    {% set idx = loop.index0 %}
-                    <td>
-                        {% if columns[idx] == 'Status' %}
-                            {% if val == 'ON TARGET' %}
-                                <span class="square green" title="ON TARGET"></span>
-                            {% else %}
-                                <span class="square red" title="BELOW TARGET"></span>
-                            {% endif %}
-                        {% else %}
-                            {{ val }}
-                        {% endif %}
-                    </td>
+            <thead>
+                <tr>
+                {% for col in columns %}
+                    <th>{{ col }}</th>
                 {% endfor %}
-            </tr>
-            {% endfor %}
-        </tbody>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    {% for val in row %}
+                        {% set idx = loop.index0 %}
+                        <td>
+                            {% if columns[idx] == 'Status' %}
+                                {% if val == 'ON TARGET' %}
+                                    <span class="square green" title="ON TARGET"></span>
+                                {% else %}
+                                    <span class="square red" title="BELOW TARGET"></span>
+                                {% endif %}
+                            {% else %}
+                                {{ val }}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 {% else %}
-    <p><strong>No records with <code>operator_en</code> found for today.</strong></p>
+    <table>
+        <tbody>
+            <tr>
+            <td>Customer</td>
+            <td>Model</td>
+            <td>Station</td>
+            <td>Operator</td>
+            <td>Output</td>
+            <td>Process Time</td>
+            <td>Target</td>
+            <td>Start Time</td>
+            <td>End Time</td>
+            <td>Status</td>
+        </tr>
+        </tbody>
+    </table>
+    <p><strong>No records with found for today.</strong></p>
 {% endif %}
 </body>
 </html>

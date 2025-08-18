@@ -1,5 +1,5 @@
 import mysql.connector
-import random
+#import random
 import numpy as np
 from scipy import stats
 from fastapi import FastAPI, Request
@@ -31,7 +31,9 @@ def fetch_operator_en_today():
     cursor = conn.cursor()
 
     cursor.execute("SHOW DATABASES")
-    databases = [db[0] for db in cursor.fetchall()]
+    all_databases = [db[0]for db in cursor.fetchall()]
+    hide_table = ['smt','onanofflimited']
+    databases = [db for db in all_databases if db not in hide_table]
 
     all_data = []
     today_str = datetime.now().strftime('%Y-%m-%d')
@@ -40,7 +42,6 @@ def fetch_operator_en_today():
         cursor.execute(f"USE `{db}`")
         cursor.execute("SHOW TABLES")
         tables = [tbl[0] for tbl in cursor.fetchall()]
-
         for table in tables:
             try:
                 cursor.execute(f"DESCRIBE `{table}`")
@@ -91,8 +92,27 @@ def fetch_operator_en_today():
                         ORDER BY `{date_column}`
                     """, (operator_en,))
                     timestamps = [r[0] for r in cursor.fetchall()]
-                    Target_Output = random.randint(1, 50)
-                    status = "ON TARGET" if Target_Output <= current_output else "BELOW TARGET"
+
+                    # Fetch process_time from production_plan.target_time
+                    # Split the project name into model and station
+                    project_name = table
+                    if '_' in project_name:
+                        model, station = project_name.split('_', 1)
+                    else:
+                        model, station = project_name, ''
+
+                    # Fetch process_time from production_plan.target_time
+                    try:
+                        cursor.execute("""
+                            SELECT process_time 
+                            FROM production_plan.target_time
+                            WHERE customer = %s AND model = %s AND station = %s
+                            LIMIT 1
+                        """, (db, model, station))
+                        result = cursor.fetchone()
+                        target_output = result[0] if result else None
+                    except mysql.connector.Error:
+                        target_output = None
 
                     # Calculate durations between consecutive records
                     durations = []
@@ -104,9 +124,15 @@ def fetch_operator_en_today():
                     # Get 3 shortest durations and compute average
                     durations.sort()
                     avg_3_shortest = round(sum(durations[:3]) / 3, 2) if len(durations) >= 3 else 0
-                    modes = np.round(durations, 2)
+                    '''modes = np.round(durations, 2)
                     modes_results = stats.mode(modes, keepdims=False)
-                    mode_value = float(modes_results.mode)
+                    mode_value = float(modes_results.mode)'''
+                    
+                    # Set status
+                    if target_output is not None:
+                        status = "ON TARGET" if avg_3_shortest <= target_output else "BELOW TARGET"
+                    else:
+                        status = "NO TARGET"
 
                     # Split the project name into model and station
                     project_name = table
@@ -121,10 +147,10 @@ def fetch_operator_en_today():
                         'Station': station,
                         'Operator': operator_en,
                         'Output': current_output,
-                        'Target(s)': Target_Output,
+                        'Target(s)': target_output,
                         'Process_Time(s)': avg_3_shortest,
-                        'Start_Time': str(start_time),
-                        'End_time': str(end_time),
+                        'Start_Time': start_time.strftime('%H:%M:%S')if start_time else None,#str(start_time),
+                        'End_time': end_time.strftime('%H:%M:%S')if end_time else None,#str(end_time),
                         'Status': status,
                     })
 
