@@ -7,6 +7,9 @@
     <!--<link rel="icon" type="image/png" href="/static/image.png">
     <link rel="stylesheet" href="/static/monitoring_v1.css">-->
     <title>Activity Monitoring</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEJ6vZgEx9p8b9E-MR11ffqGQ01pfpPbhNRp9fIvEKd+KZ3gkAZhQdZ6RHfOk" crossorigin="anonymous">
+    
     <style>
         img {
             border: 2px solid black;
@@ -54,7 +57,7 @@
             padding: 12px 15px;
             text-align: center;
             border-bottom: 1px solid #ffffff;
-            font-size: clamp(40px, 2vw, 20px);
+            font-size: clamp(20px, 2vw, 20px);
             font-family: 'Arial';
             font: bold;
             font-weight: bolder;
@@ -87,7 +90,7 @@
         th {
             background-color: #27c033;
             color: #fff;
-            font-size: 40px;
+            font-size: 20px;
             letter-spacing: 1px;
             text-transform: uppercase;
         }
@@ -127,13 +130,12 @@
 </head>
 <body>
 
-<h1>Activity Monitoring for Today ({{ current_date }})</h1>
-
+<h1 class="text-center mb-4">Activity Monitoring for Today ({{ current_date }})</h1>
 {% if rows %}
-    <div class="table-container">
+    <div class="table-responsive">
         <!--<h2>Operator Summary for {{ current_date }}</h2>-->
-        <table>
-            <thead>
+        <table class="table table-striped table-bordered">
+            <thead class="thead-dark">
                 <tr>
                 {% for col in columns %}
                     <th>{{ col }}</th>
@@ -181,5 +183,7 @@
     </table>
     <p><strong>No records with found for today.</strong></p>
 {% endif %}
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz4fnFO9gyb2lYbXwPhmU2Mx47NYwEOgsUnRm62nE2e7qntbUQvn2X5wEJ" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js" integrity="sha384-cn7l7gDp0eyniUwwAZgrzA8B3aH6V9O+eZcuJmIYYw7Ke92k7fmm7duC7q5dkF+r" crossorigin="anonymous"></script>
 </body>
 </html>
