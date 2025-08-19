@@ -1,6 +1,6 @@
 import mysql.connector
 #import random
-import numpy as np
+#import numpy as np
 from scipy import stats
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -142,15 +142,15 @@ def fetch_operator_en_today():
                         model, station = project_name, ''
 
                     all_data.append({
-                        'Customer': db,
-                        'Model': model,
-                        'Station': station,
+                        'Customer': db.upper(),
+                        'Model': model.upper(),
+                        'Station': station.upper(),
                         'Operator': operator_en,
                         'Output': current_output,
                         'Target(s)': target_output,
-                        'Process_Time(s)': avg_3_shortest,
-                        'Start_Time': start_time.strftime('%H:%M:%S')if start_time else None,#str(start_time),
-                        'End_time': end_time.strftime('%H:%M:%S')if end_time else None,#str(end_time),
+                        'Cycle Time(s)': avg_3_shortest,
+                        'Start Time': start_time.strftime('%H:%M:%S')if start_time else None,#str(start_time),
+                        'End time': end_time.strftime('%H:%M:%S')if end_time else None,#str(end_time),
                         'Status': status,
                     })
 
@@ -165,7 +165,7 @@ def fetch_operator_en_today():
 @app.get("/", response_class=HTMLResponse)
 async def show_operator_en_today(request: Request):
     all_data, today_str = fetch_operator_en_today()
-    columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Process_Time(s)', 'Target(s)', 'Start_Time', 'End_time', 'Status']
+    columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
     rows = [tuple(d[col] for col in columns) for d in all_data]
     return templates.TemplateResponse("monitoring_v1.html", {
         "request": request,
