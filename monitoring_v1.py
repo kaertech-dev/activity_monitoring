@@ -123,7 +123,8 @@ def fetch_operator_en_today():
 
                     # Get 3 shortest durations and compute average
                     durations.sort()
-                    avg_3_shortest = round(sum(durations[:3]) / 3, 2) if len(durations) >= 3 else 0
+                    #avg_3_shortest = round(sum(durations[:3]) / 3, 2) if len(durations) >= 3 else 0
+                    avg_3_shortest = (end_time - start_time).total_seconds() / current_output
                     cycle_time_display = '-' if avg_3_shortest == 0 else avg_3_shortest
                     '''modes = np.round(durations, 2)
                     modes_results = stats.mode(modes, keepdims=False)
@@ -149,7 +150,7 @@ def fetch_operator_en_today():
                         'Operator': operator_en,
                         'Output': current_output,
                         'Target(s)': target_output,
-                        'Cycle Time(s)': cycle_time_display,
+                        'Cycle Time(s)': f"{cycle_time_display:.2f}"if cycle_time_display != '-' else cycle_time_display,
                         'Start Time': start_time.strftime('%H:%M:%S')if start_time else None,#str(start_time),
                         'End time': end_time.strftime('%H:%M:%S')if end_time else None,#str(end_time),
                         'Status': status,
