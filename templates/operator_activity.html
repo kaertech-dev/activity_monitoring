@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Operator {{ operator_name }} Activity</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <h1 class="text-center my-3">Activity for Operator: {{ operator_name }} ({{ current_date }})</h1>
+
+    {% if rows %}
+    <div class="table-responsive">
+        <h2 class="text-center">Finished Outputs - {{ operator_name }}</h2>
+        <div style="width: 80%; margin: auto;">
+            <table id="outputsTable" class="display">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Serial Number</th>
+                        <th>Cycle Time (s)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                        <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    {% for val in row %}
+                        {% set idx = loop.index0 %}
+                        <td>
+                            {% if columns[idx] == 'Status' %}
+                                {% if val == 'ON TARGET' %}
+                                    <span class="badge bg-success">ON TARGET</span>
+                                {% else %}
+                                    <span class="badge bg-danger">BELOW TARGET</span>
+                                {% endif %}
+                            {% else %}
+                                {{ val }}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <p class="text-center">No records found for operator {{ operator_name }}.</p>
+    {% endif %}
+
+    <div class="text-center mt-3">
+        <a href="/" class="btn btn-secondary">⬅ Back to All Operators</a>
+    </div>
+    <!-- Inside <body> -->
+
+    <h3>Serial Numbers for {{ operator_name }}:</h3>
+    <ul>
+        {% for serial in serials %}
+            <li>{{ serial }}</li>
+        {% endfor %}
+    </ul>
+
+    <div class="container my-5">
+        <h3 class="text-center">Serial Number Scatter Plot by Time</h3>
+        <canvas id="serialScatterChart" style="height: 400px;"></canvas>
+    </div>
+
+    <script>
+    async function loadOutputs(operator) {
+        const res = await fetch(`/api/operator_outputs/${operator}`);
+        const data = await res.json();
+
+        const tbody = document.querySelector("#outputsTable tbody");
+        tbody.innerHTML = "";
+
+        data.outputs.forEach((o, i) => {
+            const row = `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${o.serial_num}</td>
+                    <td>${o.cycle_time} s</td>
+                </tr>`;
+            tbody.innerHTML += row;
+        });
+
+        if ($.fn.DataTable.isDataTable('#outputsTable')) {
+            const table = $('#outputsTable').DataTable();
+            table.clear();
+            table.rows.add(data.outputs.map((o, i) => [
+                i + 1,
+                o.serial_num,
+                `${o.cycle_time} s`
+            ]));
+            table.draw();
+        } else {
+            $('#outputsTable').DataTable({
+                data: data.outputs.map((o, i) => [
+                    i + 1,
+                    o.serial_num,
+                    `${o.cycle_time} s`
+                ]),
+                columns: [
+                    { title: "#" },
+                    { title: "Serial Number" },
+                    { title: "Cycle Time (s)" }
+                ]
+            });
+        }
+    }
+
+    let scatterChart;
+
+    async function loadScatterChart(operator) {
+        const res = await fetch(`/api/operator_outputs/${operator}`);
+        const data = await res.json();
+
+        const scatterData = data.outputs.map((item, index) => ({
+            x: new Date(item.timestamp),
+            y: index + 1,
+            label: item.serial_num
+        }));
+
+        const ctx = document.getElementById('serialScatterChart').getContext('2d');
+
+        if (scatterChart) scatterChart.destroy();
+
+        scatterChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Serials by Time',
+                    data: scatterData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    pointRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            tooltipFormat: 'HH:mm:ss',
+                            unit: 'minute',
+                            displayFormats: {
+                                minute: 'HH:mm'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Serial Order'
+                        },
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.raw.label;
+                                return `Serial: ${label}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    loadOutputs("{{ operator_name }}");
+    loadScatterChart("{{ operator_name }}");
+    </script>
+
+</body>
+</html>
