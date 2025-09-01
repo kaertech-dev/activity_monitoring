@@ -8,8 +8,10 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Query
+from starlette.staticfiles import StaticFiles
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # Allow CORS if you need cross-origin access from your LAN
