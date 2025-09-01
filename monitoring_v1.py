@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Query
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -26,7 +27,7 @@ DB_CONFIG = {
     'password': 'kts@tsd2025'
 }
 
-def fetch_operator_en_today():
+def fetch_operator_en_today(start_date = None, end_date = None):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
@@ -62,6 +63,15 @@ def fetch_operator_en_today():
                 if not date_column:
                     continue
 
+                where_clause = f"DATE(`{date_column}`) = CURDATE()"
+                params = ()
+                if start_date and end_date:
+                    where_clause = f"DATE(`{date_column}`) BETWEEN %s AND %s"
+                    params = (start_date, end_date)
+                else:
+                    where_clause = f"DATE(`{date_column}`) = CURDATE()"
+                    params = ()
+
                 # Main grouped query
                 query = f"""
                     SELECT 
@@ -71,11 +81,11 @@ def fetch_operator_en_today():
                         MAX(`{date_column}`) as end_time,
                         TIMESTAMPDIFF(HOUR, MIN(`{date_column}`), NOW()) as duration_hours
                     FROM `{db}`.`{table}`
-                    WHERE DATE(`{date_column}`) = CURDATE()
+                    WHERE {where_clause}
                     AND `status` = 1
                     GROUP BY operator_en
                 """
-                cursor.execute(query)
+                cursor.execute(query, params)
                 rows = cursor.fetchall()
 
                 # For each operator_en, compute Duration_Per_Output (3 lowest)
@@ -83,15 +93,29 @@ def fetch_operator_en_today():
                     operator_en, current_output, start_time, end_time, duration_hours = row
 
                     # Fetch all timestamps for this operator today
-                    cursor.execute(f"""
-                        SELECT `{date_column}`
-                        FROM `{db}`.`{table}`
-                        WHERE DATE(`{date_column}`) = CURDATE() 
-                        AND operator_en = %s
-                        AND `status` = 1
-                        ORDER BY `{date_column}`
-                    """, (operator_en,))
-                    timestamps = [r[0] for r in cursor.fetchall()]
+                    if start_date and end_date:
+                        cursor.execute(f"""
+                            SELECT serial_num, `{date_column}`
+                            FROM `{db}`.`{table}`
+                            WHERE DATE(`{date_column}`) BETWEEN %s AND %s
+                            AND operator_en = %s
+                            AND `status` = 1
+                            ORDER BY `{date_column}`
+                        """, (start_date, end_date, operator_en))
+                    else:
+                        cursor.execute(f"""
+                            SELECT serial_num, `{date_column}`
+                            FROM `{db}`.`{table}`
+                            WHERE DATE(`{date_column}`) = CURDATE()
+                            AND operator_en = %s
+                            AND `status` = 1
+                            ORDER BY `{date_column}`
+                        """, (operator_en,))
+
+
+                    records = cursor.fetchall()
+                    serial_nums = [r[0] for r in records]
+                    timestamps = [r[1] for r in records]
 
                     # Fetch process_time from production_plan.target_time
                     # Split the project name into model and station
@@ -154,6 +178,7 @@ def fetch_operator_en_today():
                         'Start Time': start_time.strftime('%H:%M:%S')if start_time else None,#str(start_time),
                         'End time': end_time.strftime('%H:%M:%S')if end_time else None,#str(end_time),
                         'Status': status,
+                        'serial_num': serial_nums
                     })
 
             except mysql.connector.Error:
@@ -163,17 +188,25 @@ def fetch_operator_en_today():
     conn.close()
     return all_data, today_str
 
-
 @app.get("/", response_class=HTMLResponse)
-async def show_operator_en_today(request: Request):
-    all_data, today_str = fetch_operator_en_today()
+async def show_operator_en_today(request: Request, start_date: str = Query(None), end_date: str = Query(None), db_name: str = Query(None)):
+    all_data, date_str = fetch_operator_en_today(start_date, end_date)
+    
     columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
     rows = [tuple(d[col] for col in columns) for d in all_data]
+
+    # Display range like "2025-08-25 → 2025-08-27"
+    current_date_display = f"{start_date} → {end_date}" if start_date and end_date else datetime.now().strftime('%Y-%m-%d')
+
     return templates.TemplateResponse("monitoring_v1.html", {
         "request": request,
         "rows": rows,
         "columns": columns,
-        "current_date": today_str
+        "current_date": current_date_display,
+        "start_date": start_date,
+        "end_date": end_date,
+        "selected_db": db_name,
+        "databases": []  # optionally pass the db list
     })
 
 
@@ -185,3 +218,59 @@ async def api_operator_today():
         "count": len(all_data),
         "records": all_data
     }
+
+@app.get("/operator/{operator_name}", response_class=HTMLResponse)
+async def show_operator_activity(request: Request, operator_name: str):
+    all_data, today_str = fetch_operator_en_today()
+    filtered = [d for d in all_data if d['Operator'] == operator_name]
+
+    columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 
+               'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
+    rows = [tuple(d[col] for col in columns) for d in filtered]
+
+    # Include serials
+    serials = []
+    for d in filtered:
+        serials.extend(d.get("serial_num", []))
+
+    return templates.TemplateResponse("operator_activity.html", {
+        "request": request,
+        "rows": rows,
+        "columns": columns,
+        "current_date": today_str,
+        "operator_name": operator_name,
+        "serials": serials
+    })
+
+@app.get("/api/operator_outputs/{operator_name}", response_class=JSONResponse)
+async def api_operator_outputs(operator_name: str):
+    all_data, _ = fetch_operator_en_today()
+    filtered = [d for d in all_data if d['Operator'] == operator_name]
+
+    outputs = []
+    for record in filtered:
+        # Assume you already fetch `serial_num`, `start_time`, `end_time`, and `Cycle Time(s)` in your fetch_operator_en_today()
+        serials = record.get("serial_num", [])
+        cycle_time = record.get("Cycle Time(s)", None)
+
+        for idx, serial in enumerate(serials, 1):
+            outputs.append({
+                "serial_num": serial,
+                "cycle_time": cycle_time,
+                "operator": operator_name,
+                "order": idx
+            })
+
+    return {"operator": operator_name, "outputs": outputs}
+
+@app.get("/api/operator_summary", response_class=JSONResponse)
+async def api_operator_summary():
+    all_data, _ = fetch_operator_en_today()
+    summary = {}
+
+    for record in all_data:
+        operator = record["Operator"]
+        output = record["Output"]
+        summary[operator] = summary.get(operator, 0) + output
+
+    return {"summary": summary}
