@@ -1,15 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="300">
-    <!--<link rel="icon" type="image/png" href="/static/image.png">
-    <link rel="stylesheet" href="/static/monitoring_v1.css">-->
     <title>Activity Monitoring</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEJ6vZgEx9p8b9E-MR11ffqGQ01pfpPbhNRp9fIvEKd+KZ3gkAZhQdZ6RHfOk" crossorigin="anonymous">
-    
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/custom.css" rel="stylesheet">
     <style>
         img {
             border: 2px solid black;
@@ -43,12 +41,12 @@
             border-collapse: collapse;
             margin-top: 25px auto;
             min-width: 800px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;
             background-color: #fff;
         }
         td:hover, th:hover{
             transform: scale(1.2);
-            background-color: #98ff98;
+            background-color: #8efd8e !important;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
             z-index: 1;
             position: relative;
@@ -65,12 +63,34 @@
         }
         /* Alternate row colors */
         tr:nth-child(even) {
-            background-color: hsla(120, 100%, 92%, 0.3);
+            background-color: hsla(120, 84%, 75%, 0.068) !important;
         }
 
         tr:nth-child(odd) {
             background-color: #ffffff;
         }
+        /* More specific selectors that override Bootstrap's styles */
+        .table th {
+            background-color: #27c033 !important;
+            color: white !important;
+            font-weight: bold;
+        }
+
+        .table td {
+            background-color: #ffffff !important;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .table tr:nth-child(even) td {
+            background-color: hsla(120, 51%, 75%, 0.3) !important;
+        }
+
+        .table-hover tbody tr:hover td,
+        .table-hover tbody tr:hover th {
+            background-color: #f1f1f1 !important;
+        }
+
         .square {
             height: 35px;
             width: 50px;
@@ -128,18 +148,211 @@
         }
     </style>
 </head>
-<body>
+<form id="customerform" style="display: none;">
+    <label for="customer">Select Customer:</label>
+    <select id="customer" name="customer" required>
+        <option value="" disabled selected>Select a customer</option>
+        {% for val in db %}
+            <option value="{{ val }}">{{ val }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
+    <label for="model">Select Model:</label>
+    <select id="model" name="model" required>
+        <option value="" disabled selected>Select a model</option>
+        {% for model in models %}
+            <option value="{{ model }}">{{ model }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
+    <label for="station">Select Station:</label>
+    <select id="station" name="station" required>
+        <option value="" disabled selected>Select a station</option>
+        {% for station in stations %}
+            <option value="{{ station }}">{{ station }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
+</form>
+<body class="p-5">
+<h1 class="text-center mb-4">Activity Monitoring ({{ current_date }})</h1>
+     <!-- Dropdown to choose time period -->
+    <div class="d-flex align-items-center gap-3 mb-4 justify-content-end position-relative" style="height: auto">
+        <div class="dropdown">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="arrowDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="arrowDropdown">
+                <li><a class="dropdown-item" href="#" data-target="#dayform">Day</a></li>
+                <li><a class="dropdown-item" href="#" data-target="#weekform">Week</a></li>
+                <li><a class="dropdown-item" href="#" data-target="#dayform">Day</a></li>
+                <li><a class="dropdown-item" href="#" data-target="#rangeform">Range</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" data-target="#customerform">Customer</a></li>
+            </ul>
+        </div>
+        <div id="form-container" style="position: absolute; top: 0; right: 2%; width: max-content; display: none; background: none; padding: 1rem; margin-top: 0.5rem;">
+            <!--week form-->
+            <form id="weekform" style="display: none;">
+                <label for="week">Select week:</label>
+                <input type="week" id="week" name="week" required>
+                <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
+            </form>
 
-<h1 class="text-center mb-4">Activity Monitoring for Today ({{ current_date }})</h1>
+            <!--month form-->
+            <form id="monthform" style="display: none;">
+                <label for="month">Select month:</label>
+                <input type="month" id="month" name="month" required>
+                <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
+            </form>
+
+            <!--day form-->
+            <form id="dayform" style="display: none;">
+                <label for="day" style="font-weight: bold;">Select day:</label>
+                <input type="date" id="day" name="day" required>
+                <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
+            </form>
+
+            <!--range date-->
+            <form id="rangeform">
+                <label>Start Date: 
+                    <input type="date" class="action-start" name="start_date" value="{{ current_date.split(' → ')[0] }}">
+                </label>
+                <label>End Date: 
+                    <input type="date" class="action-end" name="end_date" value="{{ current_date.split(' → ')[1] if '→' in current_date else current_date }}">
+                </label>
+                <button type="submit" class="action-btn filter-btn" style="border-style: solid; border-width: 1px; border-color: #ccc;">Filter</button>
+            </form>
+
+            <!--customer-->
+            
+        </div>
+        <div id="spinner" class="spinner-border text-primary" role="status" style="display: none;">
+            <span class="visually-hidden">loading...</span>
+        </div>
+    </div>
+
+    <!--dropdown scripts-->
+    <script>
+        // Show selected form
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                // Show form container
+                setTimeout(() => {
+                    document.getElementById('form-container').style.display = 'block';
+                    document.getElementById('spinner').style.display = 'none';
+                
+                    // Hide all forms
+                    document.querySelectorAll('#form-container form').forEach(form => {
+                        form.style.display = 'none';
+                    });
+
+                    // Show selected form
+                    const target = this.getAttribute('data-target');
+                    const selectedForm = document.querySelector(target);
+                    if (selectedForm) selectedForm.style.display = 'block';
+                }, 500);
+            });
+        });
+
+        // Auto-hide forms when dropdown closes
+        const dropdown = document.querySelector('.dropdown');
+        dropdown.addEventListener('hidden.bs.dropdown', function () {
+            // Hide form container when dropdown is closed
+            document.getElementById('form-container').style.display = 'none';
+
+            // Optionally also hide individual forms
+            document.querySelectorAll('#form-container form').forEach(form => {
+                form.style.display = 'none';
+            });
+        });
+    </script>
+
+
+    <!--week js-->
+    <script>
+    document.getElementById('weekform').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const weekInput = document.getElementById('week').value; // format: "2025-W35"
+        
+        if (weekInput) {
+            const [year, week] = weekInput.split("-W");
+            const firstDayOfYear = new Date(year, 0, 1);
+            const firstWeekDay = firstDayOfYear.getDay(); // Sunday = 0, Monday = 1
+            const weekStartOffset = (firstWeekDay <= 4 ? firstWeekDay - 1 : firstWeekDay - 8);
+            const weekStart = new Date(firstDayOfYear.getTime() + ((week - 1) * 7 + (1 - weekStartOffset)) * 24 * 60 * 60 * 1000);
+
+            const startDate = weekStart.toISOString().split('T')[0];
+            const endDate = new Date(weekStart);
+            endDate.setDate(endDate.getDate() + 6);
+            const endDateStr = endDate.toISOString().split('T')[0];
+
+            // Redirect to main route with start_date and end_date query parameters
+            window.location.href = `/?start_date=${startDate}&end_date=${endDateStr}`;
+        }
+    });
+    </script>
+
+    <!--<month js-->
+    <script>
+        document.getElementById('monthform').addEventListener('submit', function(e){
+            e.preventDefault();
+            const monthInput = document.getElementById('month').value;
+            if (monthInput){
+                const [year, month] = monthInput.split("-");
+                const start_date = `${year}-${month}-01`;
+                const endDateObj = new Date(year, month, 0);
+                const endDate = endDateObj.toISOString().split('T')[0];
+                window.location.href = `/?start_date=${start_date}&end_date=${endDate}`;
+            }
+        })
+    </script>
+
+    <!--day js-->
+    <script>
+        document.getElementById('dayform').addEventListener('submit', function(e){
+            e.preventDefault();
+            const dayInput = document.getElementById('day').value;
+            if (dayInput){
+                const start_date = dayInput;
+                const endDate = new Date(start_date);
+                endDate.setDate(endDate.getDate() + 1);
+                const endDateStr = endDate.toISOString().split('T')[0];
+                window.location.href = `/?start_date=${start_date}&end_date=${endDateStr}`;
+            }
+        })
+    </script>
+
+    <!--range js-->
+    <!-- range js -->
+    <script>
+        // Function to handle the button click for the Operator column
+        function operatorAction(operatorName) {
+            if (operatorName) {
+                window.location.href = "/operator/" + operatorName;
+            }
+        }
+    </script>
+
+<!-- Tables -->
 {% if rows %}
+    <!--tables-->
     <div class="table-responsive">
-        <!--<h2>Operator Summary for {{ current_date }}</h2>-->
         <table class="table table-striped table-bordered">
-            <thead class="thead-dark">
+            <thead class="bg-success text-white">
                 <tr>
-                {% for col in columns %}
-                    <th>{{ col }}</th>
-                {% endfor %}
+                    <th>Customer</th>
+                    <th>Model</th>
+                    <th>Station</th>
+                    <th>Operator</th>
+                    <th>Output</th>
+                    <th>Cycle Time(s)</th>
+                    <th>Target(s)</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -147,8 +360,10 @@
                 <tr>
                     {% for val in row %}
                         {% set idx = loop.index0 %}
-                        <td data-label=" {{columns [idx]}}">
-                            {% if columns[idx] == 'Status' %}
+                        <td data-label="{{ columns[idx] }}" class="{{ 'operator ' if columns[idx] == 'Operator'}}">
+                            {% if columns[idx] == 'Operator' %}
+                                <button class="btn btn-info" style="border: none; font-size: 20px; outline: none; background-color: transparent;" onclick="operatorAction('{{ val }}')">{{ val }}</button>
+                            {% elif columns[idx] == 'Status' %}
                                 {% if val == 'ON TARGET' %}
                                     <span class="square green" title="ON TARGET"></span>
                                 {% else %}
@@ -164,6 +379,7 @@
             </tbody>
         </table>
     </div>
+
 {% else %}
     <table>
         <tbody>
@@ -183,7 +399,7 @@
     </table>
     <p><strong>No records with found for today.</strong></p>
 {% endif %}
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz4fnFO9gyb2lYbXwPhmU2Mx47NYwEOgsUnRm62nE2e7qntbUQvn2X5wEJ" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js" integrity="sha384-cn7l7gDp0eyniUwwAZgrzA8B3aH6V9O+eZcuJmIYYw7Ke92k7fmm7duC7q5dkF+r" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 </html>
