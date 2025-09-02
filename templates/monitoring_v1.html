@@ -5,37 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="300">
     <title>Activity Monitoring</title>
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', path='css/monitoring_v1.css') }}" rel="stylesheet">
-
+    
 </head>
-<form id="customerform" style="display: none;">
-    <label for="customer">Select Customer:</label>
-    <select id="customer" name="customer" required>
-        <option value="" disabled selected>Select a customer</option>
-        {% for val in db %}
-            <option value="{{ val }}">{{ val }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
-    <label for="model">Select Model:</label>
-    <select id="model" name="model" required>
-        <option value="" disabled selected>Select a model</option>
-        {% for model in models %}
-            <option value="{{ model }}">{{ model }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
-    <label for="station">Select Station:</label>
-    <select id="station" name="station" required>
-        <option value="" disabled selected>Select a station</option>
-        {% for station in stations %}
-            <option value="{{ station }}">{{ station }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
-</form>
+
 <body class="p-5">
 <h1 class="text-center mb-4">Activity Monitoring ({{ current_date }})</h1>
      <!-- Dropdown to choose time period -->
@@ -47,10 +21,10 @@
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="arrowDropdown">
                 <li><a class="dropdown-item" href="#" data-target="#dayform">Day</a></li>
                 <li><a class="dropdown-item" href="#" data-target="#weekform">Week</a></li>
-                <li><a class="dropdown-item" href="#" data-target="#dayform">Day</a></li>
+                <li><a class="dropdown-item" href="#" data-target="#monthform">Month</a></li>
                 <li><a class="dropdown-item" href="#" data-target="#rangeform">Range</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#" data-target="#customerform">Customer</a></li>
+                <!--<li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" data-target="#customerform">Customer</a></li>-->
             </ul>
         </div>
         <div id="form-container" style="position: absolute; top: 0; right: 2%; width: max-content; display: none; background: none; padding: 1rem; margin-top: 0.5rem;">
@@ -87,116 +61,40 @@
             </form>
 
             <!--customer-->
+            <form id="customerform" style="display: none;">
+                <label for="customer">All Customer:</label>
+                <select id="customer" name="customer" required>
+                    <option value="" selected>All Customers</option>
+                    {% for val in db %}
+                        <option value="{{ val }}" {% if selected_db == val %}selected{% endif %}>{{ val }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="model">All Model:</label>
+                <select id="model" name="model" disabled>
+                    <option value="" selected>All Models</option>
+                    {% for model in models %}
+                        <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="station">All Station:</label>
+                <select id="station" name="station" disabled>
+                    <option value="" selected>All Stations</option>
+                    {% for station in stations %}
+                        <option value="{{ station }}" {% if selected_station == station %}selected{% endif %}>{{ station }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Filter</button>
+            </form>
+
             
         </div>
         <div id="spinner" class="spinner-border text-primary" role="status" style="display: none;">
             <span class="visually-hidden">loading...</span>
         </div>
     </div>
-
-    <!--dropdown scripts-->
-    <script>
-        // Show selected form
-        document.querySelectorAll('.dropdown-item').forEach(item => {
-            item.addEventListener('click', function (e) {
-                e.preventDefault();
-
-                // Show form container
-                setTimeout(() => {
-                    document.getElementById('form-container').style.display = 'block';
-                    document.getElementById('spinner').style.display = 'none';
-                
-                    // Hide all forms
-                    document.querySelectorAll('#form-container form').forEach(form => {
-                        form.style.display = 'none';
-                    });
-
-                    // Show selected form
-                    const target = this.getAttribute('data-target');
-                    const selectedForm = document.querySelector(target);
-                    if (selectedForm) selectedForm.style.display = 'block';
-                }, 500);
-            });
-        });
-
-        // Auto-hide forms when dropdown closes
-        const dropdown = document.querySelector('.dropdown');
-        dropdown.addEventListener('hidden.bs.dropdown', function () {
-            // Hide form container when dropdown is closed
-            document.getElementById('form-container').style.display = 'none';
-
-            // Optionally also hide individual forms
-            document.querySelectorAll('#form-container form').forEach(form => {
-                form.style.display = 'none';
-            });
-        });
-    </script>
-
-
-    <!--week js-->
-    <script>
-    document.getElementById('weekform').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const weekInput = document.getElementById('week').value; // format: "2025-W35"
-        
-        if (weekInput) {
-            const [year, week] = weekInput.split("-W");
-            const firstDayOfYear = new Date(year, 0, 1);
-            const firstWeekDay = firstDayOfYear.getDay(); // Sunday = 0, Monday = 1
-            const weekStartOffset = (firstWeekDay <= 4 ? firstWeekDay - 1 : firstWeekDay - 8);
-            const weekStart = new Date(firstDayOfYear.getTime() + ((week - 1) * 7 + (1 - weekStartOffset)) * 24 * 60 * 60 * 1000);
-
-            const startDate = weekStart.toISOString().split('T')[0];
-            const endDate = new Date(weekStart);
-            endDate.setDate(endDate.getDate() + 6);
-            const endDateStr = endDate.toISOString().split('T')[0];
-
-            // Redirect to main route with start_date and end_date query parameters
-            window.location.href = `/?start_date=${startDate}&end_date=${endDateStr}`;
-        }
-    });
-    </script>
-
-    <!--<month js-->
-    <script>
-        document.getElementById('monthform').addEventListener('submit', function(e){
-            e.preventDefault();
-            const monthInput = document.getElementById('month').value;
-            if (monthInput){
-                const [year, month] = monthInput.split("-");
-                const start_date = `${year}-${month}-01`;
-                const endDateObj = new Date(year, month, 0);
-                const endDate = endDateObj.toISOString().split('T')[0];
-                window.location.href = `/?start_date=${start_date}&end_date=${endDate}`;
-            }
-        })
-    </script>
-
-    <!--day js-->
-    <script>
-        document.getElementById('dayform').addEventListener('submit', function(e){
-            e.preventDefault();
-            const dayInput = document.getElementById('day').value;
-            if (dayInput){
-                const start_date = dayInput;
-                const endDate = new Date(start_date);
-                endDate.setDate(endDate.getDate() + 1);
-                const endDateStr = endDate.toISOString().split('T')[0];
-                window.location.href = `/?start_date=${start_date}&end_date=${endDateStr}`;
-            }
-        })
-    </script>
-
-    <!--range js-->
-    <!-- range js -->
-    <script>
-        // Function to handle the button click for the Operator column
-        function operatorAction(operatorName) {
-            if (operatorName) {
-                window.location.href = "/operator/" + operatorName;
-            }
-        }
-    </script>
 
 <!-- Tables -->
 {% if rows %}
@@ -259,9 +157,10 @@
         </tr>
         </tbody>
     </table>
-    <p><strong>No records with found for today.</strong></p>
+    <p><strong>No records found for today.</strong></p>
 {% endif %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', path='js/monitoring.js') }}"></script>
 
 </body>
 </html>

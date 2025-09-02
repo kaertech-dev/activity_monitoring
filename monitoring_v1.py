@@ -39,6 +39,9 @@ def fetch_operator_en_today(start_date = None, end_date = None):
     databases = [db for db in all_databases if db not in hide_table]
 
     all_data = []
+    active_databases = []
+    models = []
+    stations = []
     today_str = datetime.now().strftime('%Y-%m-%d')
 
     for db in databases:
@@ -89,6 +92,8 @@ def fetch_operator_en_today(start_date = None, end_date = None):
                 """
                 cursor.execute(query, params)
                 rows = cursor.fetchall()
+                if rows and db not in active_databases:
+                    active_databases.append(db)
 
                 # For each operator_en, compute Duration_Per_Output (3 lowest)
                 for row in rows:
@@ -183,17 +188,27 @@ def fetch_operator_en_today(start_date = None, end_date = None):
                         'serial_num': serial_nums
                     })
 
+                    models = sorted(set(entry['Model'] for entry in all_data))  # Clear modes for next iteration
+                    stations = sorted(set(entry['Station'] for entry in all_data))  # Clear stations for next iteration
+
             except mysql.connector.Error:
                 continue
     
     cursor.close()
     conn.close()
-    return all_data, today_str
+    return all_data, today_str, active_databases, models, stations
 
 @app.get("/", response_class=HTMLResponse)
-async def show_operator_en_today(request: Request, start_date: str = Query(None), end_date: str = Query(None), db_name: str = Query(None)):
-    all_data, date_str = fetch_operator_en_today(start_date, end_date)
-    
+async def show_operator_en_today(request: Request, start_date: str = Query(None), end_date: str = Query(None), customer: str = Query(None), model: str = Query(None), station: str = Query(None)):
+    all_data, date_str, active_databases, models, stations = fetch_operator_en_today(start_date, end_date)
+
+    if customer:
+        all_data = [d for d in all_data if d['Customer'] == customer]
+    if model:
+        all_data = [d for d in all_data if d['Model'] == model]
+    if station:
+        all_data = [d for d in all_data if d['Station'] == station]
+
     columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
     rows = [tuple(d[col] for col in columns) for d in all_data]
 
@@ -207,8 +222,12 @@ async def show_operator_en_today(request: Request, start_date: str = Query(None)
         "current_date": current_date_display,
         "start_date": start_date,
         "end_date": end_date,
-        "selected_db": db_name,
-        "databases": []  # optionally pass the db list
+        "selected_db": customer,
+        "selected_model": model,
+        "selected_station": station,
+        "db": active_databases,  # optionally pass the db list
+        "models": models,
+        "stations": stations
     })
 
 
@@ -276,3 +295,40 @@ async def api_operator_summary():
         summary[operator] = summary.get(operator, 0) + output
 
     return {"summary": summary}
+
+@app.get("/api/get-models-stations", response_class=JSONResponse)
+async def get_models_and_stations(customer: str):
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        # Use only the selected customer
+        query = f"SHOW TABLES FROM `{customer}`"
+        cursor.execute(query)
+        tables = [tbl[0] for tbl in cursor.fetchall()]
+
+        models = set()
+        stations = set()
+
+        for table in tables:
+            if '_' in table:
+                model, station = table.split('_', 1)
+            else:
+                model, station = table, ''
+
+            models.add(model.upper())
+            stations.add(station.upper())
+
+        return {
+            "models": sorted(models),
+            "stations": sorted(stations)
+        }
+
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
