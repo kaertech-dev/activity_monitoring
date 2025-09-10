@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  monitoring:
+    build: .
+    container_name: monitoring_v1
+    ports:
+      - "5000:5000"
+    restart: always
+    command: uvicorn monitoring_v1:app --host 0.0.0.0 --port 5000

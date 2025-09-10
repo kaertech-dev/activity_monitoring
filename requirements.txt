@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+mysql-connector-python
+scipy
+numpy
+jinja2
+python-multipart
+requests
