@@ -3,7 +3,8 @@ version: "3.9"
 services:
   monitoring:
     build: .
-    container_name: monitoring_v1
+    image: monitoring_v1            # builds and tags the image as monitoring_v1
+    container_name: activity_monitoring
     ports:
       - "5000:5000"
     restart: always
