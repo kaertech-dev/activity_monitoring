@@ -28,7 +28,7 @@
                 <li><a class="dropdown-item" href="#" data-target="#customerform">Customer</a></li>-->
             </ul>
         </div>
-        <div id="form-container" style="position: absolute; top: 0; right: 2%; width: max-content; display: none; background: none; margin-top: 0.5rem;">
+        <div id="form-container" style="position: absolute; top: 0; right: 2%; width: max-content; display: none; background: none; margin-top: 0.5rem; position: absolute; top: 45px; right: 160px;">
             <!--week form-->
             <form id="weekform" style="display: none;">
                 <label for="week">Select week:</label>
@@ -72,38 +72,47 @@
     </div>
 
     <form id="filter-form" method="get">
-        <!-- Customer -->
-        <label for="customer">Customer:</label>
-        <select id="customer" name="customer">
-            <option value="" selected>All Customers</option>
-            {% for val in db %}
+        <div class="d-flex justify-content-between align-items-center mb-3" style="flex-wrap: wrap; gap: 1rem;">
+            <!-- Dropdowns -->
+            <div class="d-flex gap-2 flex-wrap">
+            <!-- Customer -->
+            <label for="customer">Customer:</label>
+            <select id="customer" name="customer">
+                <option value="" selected>All Customers</option>
+                {% for val in db %}
                 <option value="{{ val }}" {% if selected_db == val %}selected{% endif %}>{{ val }}</option>
-            {% endfor %}
-        </select>
-        <!--<button type="submit" name="submit_customer" class="btn btn-primary" style="padding: 0.3rem;">Submit</button>-->
+                {% endfor %}
+            </select>
 
-        <!-- Model -->
-        <label for="model">Model:</label>
-        <select id="model" name="model">
-            <option value="" selected>All Models</option>
-            {% for model in models %}
+            <!-- Model -->
+            <label for="model">Model:</label>
+            <select id="model" name="model">
+                <option value="" selected>All Models</option>
+                {% for model in models %}
                 <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
-            {% endfor %}
-        </select>
-        <!--<button type="submit" name="submit_model" class="btn btn-primary" style="padding: 0.3rem;">Submit</button>-->
+                {% endfor %}
+            </select>
 
-        <!-- Station -->
-        <label for="station">Station:</label>
-        <select id="station" name="station">
-            <option value="" selected>All Stations</option>
-            {% for station in stations %}
+            <!-- Station -->
+            <label for="station">Station:</label>
+            <select id="station" name="station">
+                <option value="" selected>All Stations</option>
+                {% for station in stations %}
                 <option value="{{ station }}" {% if selected_station == station %}selected{% endif %}>{{ station }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" id="filterSubmit" class="btn btn-primary">Submit</button>
+                {% endfor %}
+            </select>
 
+            <button type="submit" id="filterSubmit" class="btn btn-primary">Submit</button>
+            </div>
+
+            <!-- Download Button -->
+            <div>
+            <a href="/api/download_csv" class="btn btn-success">
+                ⬇️ Download CSV
+            </a>
+            </div>
+        </div>
     </form>
-    
     
     <!-- Tables -->
     {% if rows %}
@@ -149,27 +158,79 @@
             </table>
         </div>
 
-    {% else %}<!--no records-->
+    {% else %}
         <table>
-            <tbody id="no-records">
+            <tbody>
                 <tr>
-                    <td>Customer</td>
-                    <td>Model</td>
-                    <td>Station</td>
-                    <td>Operator</td>
-                    <td>Output</td>
-                    <td>Process Time</td>
-                    <td>Target</td>
-                    <td>Start Time</td>
-                    <td>End Time</td>
-                    <td>Status</td>
-                </tr>
+                <td>Customer</td>
+                <td>Model</td>
+                <td>Station</td>
+                <td>Operator</td>
+                <td>Output</td>
+                <td>Process Time</td>
+                <td>Target</td>
+                <td>Start Time</td>
+                <td>End Time</td>
+                <td>Status</td>
+            </tr>
             </tbody>
         </table>
         <p><strong>No records found for today.</strong></p>
     {% endif %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', path='js/monitoring.js') }}"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+        const formContainer = document.getElementById("form-container");
+        const dropdownItems = document.querySelectorAll(".dropdown-item");
+        const downloadButton = document.querySelector(".btn-success");
+
+        // Show the selected form
+        dropdownItems.forEach(item => {
+            item.addEventListener("click", function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute("data-target");
+            const forms = formContainer.querySelectorAll("form");
+            forms.forEach(form => form.style.display = "none");
+            document.querySelector(targetId).style.display = "block";
+            formContainer.style.display = "block";
+            });
+        });
+
+        // Attach submit handlers to each form
+        const forms = formContainer.querySelectorAll("form");
+        forms.forEach(form => {
+            form.addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            let query = "";
+
+            if (form.id === "dayform") {
+                const day = form.querySelector("#day").value;
+                query = `?date=${encodeURIComponent(day)}`;
+            } else if (form.id === "weekform") {
+                const week = form.querySelector("#week").value;
+                query = `?week=${encodeURIComponent(week)}`;
+            } else if (form.id === "monthform") {
+                const month = form.querySelector("#month").value;
+                query = `?month=${encodeURIComponent(month)}`;
+            } else if (form.id === "rangeform") {
+                const start = form.querySelector(".action-start").value;
+                const end = form.querySelector(".action-end").value;
+                query = `?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`;
+            }
+
+            // Trigger CSV download
+            const link = document.createElement("a");
+            link.href = `/api/download_csv${query}`;
+            link.download = "production_data.csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            });
+        });
+        });
+        </script>
 
 </body>
 </html>
