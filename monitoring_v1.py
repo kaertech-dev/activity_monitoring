@@ -1,7 +1,7 @@
 from mysql.connector.pooling import MySQLConnectionPool
 from scipy import stats
 from fastapi import FastAPI, Request, Query, HTTPException, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
@@ -15,6 +15,8 @@ import logging
 import os
 from functools import lru_cache
 import numpy as np
+import csv
+import io
 
 # Configure logging
 logging.basicConfig(
@@ -586,6 +588,81 @@ async def api_operator_summary():
         logger.error(f"Operator summary error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate operator summary")
 
+@app.get("/api/download_csv", response_class=StreamingResponse)
+async def download_csv(
+    date: str = None,
+    week: str = None,
+    month: str = None,
+    start_date: str = None,
+    end_date: str = None
+):
+    try:
+        # Convert date/week/month into start/end range
+        if date:
+            start_date = end_date = date
+        elif week:
+            year, week_num = map(int, week.split('-W'))
+            start_date = datetime.strptime(f'{year}-W{week_num}-1', "%Y-W%W-%w").date().isoformat()
+            end_date = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=6)).date().isoformat()
+        elif month:
+            year, month_num = map(int, month.split('-'))
+            start_date = datetime(year, month_num, 1).date().isoformat()
+            next_month = datetime(year, month_num, 28) + timedelta(days=4)
+            end_date = datetime(next_month.year, next_month.month, 1) - timedelta(days=1)
+            end_date = end_date.date().isoformat()
+
+        # Fetch filtered records
+        records, _, _, _, _ = fetch_production_data(start_date=start_date, end_date=end_date)
+
+        """Download all production data as CSV"""
+        #records, _, _, _, _ = fetch_production_data()
+        
+        # Prepare CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        header = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 
+                  'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers']
+        writer.writerow(header)
+        
+        # Write data rows
+        for record in records:
+            row = [
+                record.customer.upper(),
+                record.model.upper(),
+                record.station.upper(),
+                record.operator,
+                record.output,
+                f"{record.cycle_time:.2f}" if record.cycle_time != 0 else '-',
+                record.target_time,
+                #record.start_time.strftime('%Y-%m-%d') if record.start_time else None,
+                record.start_time.strftime('%H:%M:%S') if record.start_time else None,
+                record.end_time.strftime('%H:%M:%S') if record.end_time else None,
+                record.status,
+                ', '.join(record.serial_nums) if isinstance(record.serial_nums, list) else record.serial_nums
+            ]
+            writer.writerow(row)
+        
+        output.seek(0)
+        
+        #headers = {
+        #    'Content-Disposition': f'attachment; filename="production_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        #}
+        file_date = records[0].start_time.strftime("%Y%m%d") if records and records[0].start_time else datetime.now().strftime("%Y%m%d")
+        headers = {
+            'Content-Disposition': f'attachment; filename="production_data_{file_date}.csv"'
+        }
+        
+        return StreamingResponse(
+            iter([output.getvalue()]), 
+            media_type="text/csv", 
+            headers=headers)
+
+    except Exception as e:
+        logger.error(f"CSV download error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate CSV")
+    
 @app.get("/api/get-models-stations", response_class=JSONResponse)
 async def get_models_and_stations(
     customer: Optional[str] = Query(None),
