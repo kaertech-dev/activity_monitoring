@@ -118,6 +118,55 @@ def get_db_connection():
         if conn:
             conn.close()
 
+def get_production_start_time(target_date: str = None) -> Tuple[datetime, datetime]:
+    """
+    Get production start and end times for a given date.
+    Production day starts at 7:00 AM and ends at 6:59:59 AM next day.
+    
+    Args:
+        target_date: Date string in 'YYYY-MM-DD' format. If None, uses current date.
+    
+    Returns:
+        Tuple of (start_datetime, end_datetime) for the production day
+    """
+    if target_date:
+        base_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+    else:
+        current_time = datetime.now()
+        # If current time is before 7 AM, consider it part of previous production day
+        if current_time.hour < 7:
+            base_date = current_time.date() - timedelta(days=1)
+        else:
+            base_date = current_time.date()
+    
+    # Production day starts at 7:00 AM
+    start_time = datetime.combine(base_date, datetime.min.time().replace(hour=7, minute=0, second=0))
+    # Production day ends at 6:59:59 AM next day
+    end_time = start_time + timedelta(days=1) - timedelta(seconds=1)
+    
+    return start_time, end_time
+
+def get_production_date_range(start_date: str = None, end_date: str = None) -> Tuple[datetime, datetime]:
+    """
+    Get production date range considering 7 AM start times.
+    
+    Args:
+        start_date: Start date string in 'YYYY-MM-DD' format
+        end_date: End date string in 'YYYY-MM-DD' format
+    
+    Returns:
+        Tuple of (start_datetime, end_datetime) for the production period
+    """
+    if start_date and end_date:
+        # Start from 7:00 AM of start_date
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d').replace(hour=7, minute=0, second=0)
+        # End at 6:59:59 AM of the day after end_date
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=6, minute=59, second=59) + timedelta(days=1)
+        return start_dt, end_dt
+    else:
+        # Default to current production day
+        return get_production_start_time()
+
 class ProductionDataProcessor:
     """Enhanced production data processing with statistical analysis"""
     
@@ -198,7 +247,7 @@ def process_table_data(
     start_date: Optional[str] = None, 
     end_date: Optional[str] = None
 ) -> List[ProductionRecord]:
-    """Process data from a single table with enhanced statistics"""
+    """Process data from a single table with enhanced statistics and 7 AM start time"""
     try:
         with get_db_connection() as cursor:
             columns_info = ProductionDataProcessor.get_table_columns(cursor, database, table)
@@ -210,13 +259,16 @@ def process_table_data(
             if not date_column:
                 return []
 
-            # Build where clause
+            # Build where clause with 7 AM production day logic
             if start_date and end_date:
-                where_clause = f"DATE(`{date_column}`) BETWEEN %s AND %s"
-                params = (start_date, end_date)
+                start_dt, end_dt = get_production_date_range(start_date, end_date)
+                where_clause = f"`{date_column}` BETWEEN %s AND %s"
+                params = (start_dt, end_dt)
             else:
-                where_clause = f"DATE(`{date_column}`) = CURDATE()"
-                params = ()
+                # Default to current production day (from 7 AM today)
+                start_dt, end_dt = get_production_start_time()
+                where_clause = f"`{date_column}` BETWEEN %s AND %s"
+                params = (start_dt, end_dt)
 
             # Main grouped query with duration calculation
             query = f"""
@@ -326,7 +378,7 @@ def fetch_production_data(
     start_date: Optional[str] = None, 
     end_date: Optional[str] = None
 ) -> Tuple[List[ProductionRecord], str, List[str], List[str], List[str]]:
-    """Fetch all production data with parallel processing"""
+    """Fetch all production data with parallel processing and 7 AM start time"""
     databases, tables_by_db = get_databases_and_tables()
     
     all_records = []
@@ -334,7 +386,12 @@ def fetch_production_data(
     models = set()
     stations = set()
     
-    today_str = datetime.now().strftime('%Y-%m-%d')
+    # Get production day info for display
+    if start_date and end_date:
+        date_display = f"{start_date} → {end_date} (7AM-7AM cycles)"
+    else:
+        start_dt, end_dt = get_production_start_time()
+        date_display = f"{start_dt.strftime('%Y-%m-%d')} (from 7:00 AM)"
     
     # Prepare tasks for parallel execution
     tasks = []
@@ -366,7 +423,7 @@ def fetch_production_data(
     
     return (
         all_records,
-        today_str,
+        date_display,
         sorted(active_databases),
         sorted(models),
         sorted(stations)
@@ -403,7 +460,7 @@ async def show_operator_en_today(
     submit_model: Optional[str] = Query(None),
     submit_station: Optional[str] = Query(None)
 ):
-    """Main dashboard endpoint"""
+    """Main dashboard endpoint with 7 AM production day start"""
     try:
         records, date_str, active_databases, models, stations = fetch_production_data(start_date, end_date)
         filtered_records = apply_filters(records, filters)
@@ -411,7 +468,12 @@ async def show_operator_en_today(
         columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
         rows = [tuple(record.to_dict()[col] for col in columns) for record in filtered_records]
         
-        current_date_display = f"{start_date} → {end_date}" if start_date and end_date else datetime.now().strftime('%Y-%m-%d')
+        # Enhanced date display with production day info
+        if start_date and end_date:
+            current_date_display = f"{start_date} → {end_date}"
+        else:
+            start_dt, end_dt = get_production_start_time()
+            current_date_display = f"{start_dt.strftime('%Y-%m-%d')} (from 7:00 AM)"
         
         return templates.TemplateResponse("monitoring_v1.html", {
             "request": request,
@@ -438,7 +500,7 @@ async def api_operator_today(
     end_date: Optional[str] = Query(None),
     filters: Dict[str, Optional[str]] = Depends(get_filters)
 ):
-    """API endpoint for today's operator data"""
+    """API endpoint for today's operator data with 7 AM start"""
     try:
         records, date_str, _, _, _ = fetch_production_data(start_date, end_date)
         filtered_records = apply_filters(records, filters)
@@ -447,7 +509,8 @@ async def api_operator_today(
             "date": date_str,
             "count": len(filtered_records),
             "records": [record.to_dict() for record in filtered_records],
-            "filters_applied": {k: v for k, v in filters.items() if v}
+            "filters_applied": {k: v for k, v in filters.items() if v},
+            "production_day_info": "Production day starts at 7:00 AM"
         }
     except Exception as e:
         logger.error(f"API operator today error: {e}")
@@ -455,7 +518,7 @@ async def api_operator_today(
 
 @app.get("/operator/{operator_name}", response_class=HTMLResponse)
 async def show_operator_activity(request: Request, operator_name: str):
-    """Show specific operator activity with enhanced details"""
+    """Show specific operator activity with enhanced details and 7 AM start"""
     try:
         records, today_str, _, _, _ = fetch_production_data()
         filtered_records = [r for r in records if r.operator == operator_name]
@@ -510,7 +573,7 @@ async def show_operator_activity(request: Request, operator_name: str):
 
 @app.get("/api/operator_outputs/{operator_name}", response_class=JSONResponse)
 async def api_operator_outputs(operator_name: str):
-    """Get detailed outputs for a specific operator"""
+    """Get detailed outputs for a specific operator with 7 AM start"""
     try:
         records, _, _, _, _ = fetch_production_data()
         filtered_records = [r for r in records if r.operator == operator_name]
@@ -533,7 +596,8 @@ async def api_operator_outputs(operator_name: str):
         return {
             "operator": operator_name, 
             "outputs": outputs,
-            "total_count": len(outputs)
+            "total_count": len(outputs),
+            "production_day_info": "Production day starts at 7:00 AM"
         }
     except Exception as e:
         logger.error(f"Operator outputs API error: {e}")
@@ -541,7 +605,7 @@ async def api_operator_outputs(operator_name: str):
 
 @app.get("/api/operator_summary", response_class=JSONResponse)
 async def api_operator_summary():
-    """Get comprehensive operator summary statistics"""
+    """Get comprehensive operator summary statistics with 7 AM start"""
     try:
         records, _, _, _, _ = fetch_production_data()
         
@@ -582,87 +646,13 @@ async def api_operator_summary():
         return {
             "summary": summary, 
             "total_operators": len(summary),
-            "generated_at": datetime.now().isoformat()
+            "generated_at": datetime.now().isoformat(),
+            "production_day_info": "Production day starts at 7:00 AM"
         }
     except Exception as e:
         logger.error(f"Operator summary error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate operator summary")
 
-@app.get("/api/download_csv", response_class=StreamingResponse)
-async def download_csv(
-    date: str = None,
-    week: str = None,
-    month: str = None,
-    start_date: str = None,
-    end_date: str = None
-):
-    try:
-        # Convert date/week/month into start/end range
-        if date:
-            start_date = end_date = date
-        elif week:
-            year, week_num = map(int, week.split('-W'))
-            start_date = datetime.strptime(f'{year}-W{week_num}-1', "%Y-W%W-%w").date().isoformat()
-            end_date = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=6)).date().isoformat()
-        elif month:
-            year, month_num = map(int, month.split('-'))
-            start_date = datetime(year, month_num, 1).date().isoformat()
-            next_month = datetime(year, month_num, 28) + timedelta(days=4)
-            end_date = datetime(next_month.year, next_month.month, 1) - timedelta(days=1)
-            end_date = end_date.date().isoformat()
-
-        # Fetch filtered records
-        records, _, _, _, _ = fetch_production_data(start_date=start_date, end_date=end_date)
-
-        """Download all production data as CSV"""
-        #records, _, _, _, _ = fetch_production_data()
-        
-        # Prepare CSV in memory
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        # Write header
-        header = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 
-                  'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers']
-        writer.writerow(header)
-        
-        # Write data rows
-        for record in records:
-            row = [
-                record.customer.upper(),
-                record.model.upper(),
-                record.station.upper(),
-                record.operator,
-                record.output,
-                f"{record.cycle_time:.2f}" if record.cycle_time != 0 else '-',
-                record.target_time,
-                #record.start_time.strftime('%Y-%m-%d') if record.start_time else None,
-                record.start_time.strftime('%H:%M:%S') if record.start_time else None,
-                record.end_time.strftime('%H:%M:%S') if record.end_time else None,
-                record.status,
-                ', '.join(record.serial_nums) if isinstance(record.serial_nums, list) else record.serial_nums
-            ]
-            writer.writerow(row)
-        
-        output.seek(0)
-        
-        #headers = {
-        #    'Content-Disposition': f'attachment; filename="production_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-        #}
-        file_date = records[0].start_time.strftime("%Y%m%d") if records and records[0].start_time else datetime.now().strftime("%Y%m%d")
-        headers = {
-            'Content-Disposition': f'attachment; filename="production_data_{file_date}.csv"'
-        }
-        
-        return StreamingResponse(
-            iter([output.getvalue()]), 
-            media_type="text/csv", 
-            headers=headers)
-
-    except Exception as e:
-        logger.error(f"CSV download error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate CSV")
-    
 @app.get("/api/get-models-stations", response_class=JSONResponse)
 async def get_models_and_stations(
     customer: Optional[str] = Query(None),
@@ -671,7 +661,7 @@ async def get_models_and_stations(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):
-    """Get available models and stations based on actual data records"""
+    """Get available models and stations based on actual data records with 7 AM logic"""
     try:
         # Fetch production data with the same date filters as the main dashboard
         records, _, _, _, _ = fetch_production_data(start_date, end_date)
@@ -712,62 +702,88 @@ async def get_models_and_stations(
                 "start_date": start_date,
                 "end_date": end_date
             },
-            "total_records": len(records) if customer else "N/A"
+            "total_records": len(records) if customer else "N/A",
+            "production_day_info": "Production day starts at 7:00 AM"
         }
         
     except Exception as e:
         logger.error(f"Data-based models/stations API error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch models and stations: {str(e)}")
 
-# Optional: Add a separate endpoint for table-based structure (for reference)
-@app.get("/api/get-table-structure", response_class=JSONResponse)
-async def get_table_structure(
-    customer: Optional[str] = Query(None)
+@app.get("/api/download_csv", response_class=StreamingResponse)
+async def download_csv(
+    date: str = None,
+    week: str = None,
+    month: str = None,
+    start_date: str = None,
+    end_date: str = None
 ):
-    """Get all possible models and stations from table structure (may include tables without data)"""
+    """Download production data as CSV with 7 AM production day logic"""
     try:
-        _, tables_by_db = get_databases_and_tables()
+        # Convert date/week/month into start/end range with 7 AM logic
+        if date:
+            start_date = end_date = date
+        elif week:
+            year, week_num = map(int, week.split('-W'))
+            start_date = datetime.strptime(f'{year}-W{week_num}-1', "%Y-W%W-%w").date().isoformat()
+            end_date = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=6)).date().isoformat()
+        elif month:
+            year, month_num = map(int, month.split('-'))
+            start_date = datetime(year, month_num, 1).date().isoformat()
+            next_month = datetime(year, month_num, 28) + timedelta(days=4)
+            end_date = datetime(next_month.year, next_month.month, 1) - timedelta(days=1)
+            end_date = end_date.date().isoformat()
+
+        # Fetch filtered records with 7 AM production day logic
+        records, _, _, _, _ = fetch_production_data(start_date=start_date, end_date=end_date)
         
-        models = set()
-        stations = set()
+        # Prepare CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
         
-        def process_table_names(db_name: str):
-            if db_name in tables_by_db:
-                for table in tables_by_db[db_name]:
-                    if '_' in table:
-                        parts = table.split('_', 1)
-                        if len(parts) == 2:
-                            table_model, table_station = parts
-                            models.add(table_model)
-                            stations.add(table_station)
+        # Write header with production day info
+        header = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 
+                  'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers']
+        writer.writerow(header)
+        writer.writerow(['# Production Day: Starts at 7:00 AM each day'])
         
-        if customer:
-            customer_db = customer.lower()
-            if customer_db in tables_by_db:
-                process_table_names(customer_db)
-            else:
-                for db_name in tables_by_db.keys():
-                    if db_name.lower() == customer_db:
-                        process_table_names(db_name)
-                        break
+        # Write data rows
+        for record in records:
+            row = [
+                record.customer.upper(),
+                record.model.upper(),
+                record.station.upper(),
+                record.operator,
+                record.output,
+                f"{record.cycle_time:.2f}" if record.cycle_time != 0 else '-',
+                record.target_time,
+                record.start_time.strftime('%H:%M:%S') if record.start_time else None,
+                record.end_time.strftime('%H:%M:%S') if record.end_time else None,
+                record.status,
+                ', '.join(record.serial_nums) if isinstance(record.serial_nums, list) else record.serial_nums
+            ]
+            writer.writerow(row)
+        
+        output.seek(0)
+        
+        # Generate filename with production day info
+        if records and records[0].start_time:
+            file_date = records[0].start_time.strftime("%Y%m%d")
         else:
-            for db_name in tables_by_db.keys():
-                process_table_names(db_name)
-        
-        return {
-            "models": sorted(list(models)),
-            "stations": sorted(list(stations)),
-            "count": {
-                "models": len(models),
-                "stations": len(stations)
-            },
-            "customer_filter": customer,
-            "note": "This shows all possible models/stations from table structure, not necessarily with data"
+            file_date = datetime.now().strftime("%Y%m%d")
+            
+        headers = {
+            'Content-Disposition': f'attachment; filename="production_data.csv"'
         }
         
+        return StreamingResponse(
+            iter([output.getvalue()]), 
+            media_type="text/csv", 
+            headers=headers)
+
     except Exception as e:
-        logger.error(f"Table structure API error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch table structure: {str(e)}")
+        logger.error(f"CSV download error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate CSV")
 
 @app.get("/api/statistics", response_class=JSONResponse)
 async def get_production_statistics(
@@ -775,7 +791,7 @@ async def get_production_statistics(
     end_date: Optional[str] = Query(None),
     filters: Dict[str, Optional[str]] = Depends(get_filters)
 ):
-    """Get comprehensive production statistics"""
+    """Get comprehensive production statistics with 7 AM start logic"""
     try:
         records, date_str, _, _, _ = fetch_production_data(start_date, end_date)
         filtered_records = apply_filters(records, filters)
@@ -810,28 +826,78 @@ async def get_production_statistics(
                 "total_operators": total_operators,
                 "total_stations": total_stations,
                 "avg_cycle_time": round(avg_cycle_time, 2),
-                "date_range": f"{start_date} to {end_date}" if start_date and end_date else date_str
+                "date_range": date_str
             },
             "status_distribution": status_counts,
             "top_operators": [{"operator": op, "output": out} for op, out in top_operators],
             "filters_applied": {k: v for k, v in filters.items() if v},
-            "generated_at": datetime.now().isoformat()
+            "generated_at": datetime.now().isoformat(),
+            "production_day_info": "Production day starts at 7:00 AM"
         }
     except Exception as e:
         logger.error(f"Statistics API error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate statistics")
 
+@app.get("/api/production_day_info", response_class=JSONResponse)
+async def get_production_day_info():
+    """Get information about current production day timing"""
+    try:
+        current_time = datetime.now()
+        start_dt, end_dt = get_production_start_time()
+        
+        # Determine if we're in current production day or next
+        is_current_day = start_dt <= current_time <= end_dt
+        
+        # Calculate time remaining in current production day
+        if is_current_day:
+            time_remaining = end_dt - current_time
+            status = "IN_PROGRESS"
+        else:
+            # If before 7 AM, show time until next production day starts
+            next_start = start_dt + timedelta(days=1)
+            time_remaining = next_start - current_time
+            status = "WAITING_FOR_START"
+        
+        hours_remaining = time_remaining.total_seconds() / 3600
+        
+        return {
+            "current_production_day": {
+                "start": start_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                "end": end_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                "status": status,
+                "hours_remaining": round(hours_remaining, 2)
+            },
+            "current_time": current_time.strftime('%Y-%m-%d %H:%M:%S'),
+            "is_production_hours": is_current_day,
+            "production_day_info": "Production day runs from 7:00 AM to 6:59:59 AM next day"
+        }
+    except Exception as e:
+        logger.error(f"Production day info error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get production day info")
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with production day info"""
     try:
         with get_db_connection() as cursor:
             cursor.execute("SELECT 1")
+            
+            # Add production day timing to health check
+            start_dt, end_dt = get_production_start_time()
+            current_time = datetime.now()
+            is_production_hours = start_dt <= current_time <= end_dt
+            
             return {
                 "status": "healthy",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": current_time.isoformat(),
                 "database": "connected",
-                "pool_size": db_config.pool_size
+                "pool_size": db_config.pool_size,
+                "production_day": {
+                    "current_start": start_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                    "current_end": end_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                    "is_production_hours": is_production_hours,
+                    "info": "Production day starts at 7:00 AM"
+                }
             }
     except Exception as e:
         logger.error(f"Health check failed: {e}")

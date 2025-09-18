@@ -433,3 +433,93 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded - initializing dropdown states');
     initializeDropdownStates();
 });
+
+// Reusable function to trigger CSV download
+function triggerCsvDownload(startDate, endDate) {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    // Preserve existing filters (customer, model, station)
+    const customer = document.getElementById('customer').value;
+    const model = document.getElementById('model').value;
+    const station = document.getElementById('station').value;
+    if (customer) params.append('customer', customer);
+    if (model) params.append('model', model);
+    if (station) params.append('station', station);
+
+    const downloadUrl = `/api/download_csv?${params.toString()}`;
+    console.log('Triggering CSV download with URL:', downloadUrl);
+
+    // Set loading state
+    setLoadingState(true);
+
+    fetch(downloadUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            // Use the same filename logic as the backend
+            const fileDate = startDate.replace(/-/g, '') || new Date().toISOString().split('T')[0].replace(/-/g, '');
+            a.download = `production_data_7am_${fileDate}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            console.error('Error downloading CSV:', error);
+            alert('Failed to download CSV. Please try again.');
+        })
+        .finally(() => {
+            setLoadingState(false);
+        });
+}
+
+// Handle day form
+document.getElementById('dayform')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const dayInput = document.getElementById('day').value;
+    if (dayInput) {
+        const startDate = dayInput;
+        const endDate = startDate; // For day selection, start and end are the same
+
+        // Update URL to reflect date selection
+        window.location.href = `/?start_date=${startDate}&end_date=${endDate}`;
+
+        // Trigger CSV download
+        triggerCsvDownload(startDate, endDate);
+    }
+});
+
+// Handle week form
+document.getElementById('weekform')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const weekInput = document.getElementById('week').value;
+    
+    if (weekInput) {
+        const [year, week] = weekInput.split("-W");
+        const firstDayOfYear = new Date(year, 0, 1);
+        const firstWeekDay = firstDayOfYear.getDay();
+        const weekStartOffset = (firstWeekDay <= 4 ? firstWeekDay - 1 : firstWeekDay - 8);
+        const weekStart = new Date(firstDayOfYear.getTime() + ((week - 1) * 7 + (1 - weekStartOffset)) * 86400000);
+
+        const startDate = weekStart.toISOString().split('T')[0];
+        const endDate = new Date(weekStart);
+        endDate.setDate(endDate.getDate() + 6);
+        const endDateStr = endDate.toISOString().split('T')[0];
+
+        // Update URL to reflect date selection
+        window.location.href = `/?start_date=${startDate}&end_date=${endDateStr}`;
+
+        // Trigger CSV download
+        triggerCsvDownload(startDate, endDateStr);
+    }
+});
