@@ -391,7 +391,7 @@ def fetch_production_data(
         date_display = f"{start_date} → {end_date} (7AM-7AM cycles)"
     else:
         start_dt, end_dt = get_production_start_time()
-        date_display = f"{start_dt.strftime('%Y-%m-%d')} (from 7:00 AM)"
+        date_display = f"{start_dt.strftime('%Y-%m-%d')}"# (from 7:00 AM)
     
     # Prepare tasks for parallel execution
     tasks = []
@@ -473,7 +473,7 @@ async def show_operator_en_today(
             current_date_display = f"{start_date} → {end_date}"
         else:
             start_dt, end_dt = get_production_start_time()
-            current_date_display = f"{start_dt.strftime('%Y-%m-%d')} (from 7:00 AM)"
+            current_date_display = f"{start_dt.strftime('%Y-%m-%d')}"# (from 7:00 AM)
         
         return templates.TemplateResponse("monitoring_v1.html", {
             "request": request,
