@@ -138,6 +138,16 @@ tr:hover {
     font-weight: bold;
     text-align: center;
 }
+#form-container {
+    position: absolute;
+    top: 45px;
+    right: 160px;
+    width: max-content;
+    display: none;
+    background: none;
+    margin-top: 0.5rem;
+}
+
 @media screen and (max-width: 768px) {
     table, thead, tbody, th, td, tr {
         display: block;

@@ -17,6 +17,7 @@ from functools import lru_cache
 import numpy as np
 import csv
 import io
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -391,7 +392,7 @@ def fetch_production_data(
         date_display = f"{start_date} → {end_date} (7AM-7AM cycles)"
     else:
         start_dt, end_dt = get_production_start_time()
-        date_display = f"{start_dt.strftime('%Y-%m-%d')}"# (from 7:00 AM)
+        date_display = f"{start_dt.strftime('%Y-%m-%d')}"
     
     # Prepare tasks for parallel execution
     tasks = []
@@ -710,6 +711,13 @@ async def get_models_and_stations(
         logger.error(f"Data-based models/stations API error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch models and stations: {str(e)}")
 
+import re
+import csv
+import io
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
+
 @app.get("/api/download_csv", response_class=StreamingResponse)
 async def download_csv(
     date: str = None,
@@ -720,13 +728,36 @@ async def download_csv(
 ):
     """Download production data as CSV with 7 AM production day logic"""
     try:
-        # Convert date/week/month into start/end range with 7 AM logic
+        # --- Validation helpers ---
+        def validate_date(date_str: str) -> bool:
+            if not date_str:
+                return True
+            try:
+                datetime.strptime(date_str, '%Y-%m-%d')
+                return True
+            except ValueError:
+                return False
+
+        # Validate inputs
+        if date and not validate_date(date):
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        if start_date and not validate_date(start_date):
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+        if end_date and not validate_date(end_date):
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
+        if week and not re.match(r'^\d{4}-W\d{1,2}$', week):
+            raise HTTPException(status_code=400, detail="Invalid week format. Use YYYY-WNN")
+        if month and not re.match(r'^\d{4}-\d{1,2}$', month):
+            raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+
+        # --- Date logic ---
         if date:
             start_date = end_date = date
         elif week:
             year, week_num = map(int, week.split('-W'))
-            start_date = datetime.strptime(f'{year}-W{week_num}-1', "%Y-W%W-%w").date().isoformat()
-            end_date = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=6)).date().isoformat()
+            # ISO-compliant week calculation
+            start_date = datetime.fromisocalendar(year, week_num, 1).date().isoformat()
+            end_date = datetime.fromisocalendar(year, week_num, 7).date().isoformat()
         elif month:
             year, month_num = map(int, month.split('-'))
             start_date = datetime(year, month_num, 1).date().isoformat()
@@ -734,20 +765,16 @@ async def download_csv(
             end_date = datetime(next_month.year, next_month.month, 1) - timedelta(days=1)
             end_date = end_date.date().isoformat()
 
-        # Fetch filtered records with 7 AM production day logic
+        # --- Fetch records ---
         records, _, _, _, _ = fetch_production_data(start_date=start_date, end_date=end_date)
-        
-        # Prepare CSV in memory
+
+        # --- Prepare CSV ---
         output = io.StringIO()
         writer = csv.writer(output)
-        
-        # Write header with production day info
-        header = ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 
-                  'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers']
-        writer.writerow(header)
+        writer.writerow(['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)',
+                         'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers'])
         writer.writerow(['# Production Day: Starts at 7:00 AM each day'])
-        
-        # Write data rows
+
         for record in records:
             row = [
                 record.customer.upper(),
@@ -763,23 +790,18 @@ async def download_csv(
                 ', '.join(record.serial_nums) if isinstance(record.serial_nums, list) else record.serial_nums
             ]
             writer.writerow(row)
-        
+
         output.seek(0)
-        
-        # Generate filename with production day info
-        if records and records[0].start_time:
-            file_date = records[0].start_time.strftime("%Y%m%d")
-        else:
-            file_date = datetime.now().strftime("%Y%m%d")
-            
+
         headers = {
             'Content-Disposition': f'attachment; filename="production_data.csv"'
         }
-        
+
         return StreamingResponse(
-            iter([output.getvalue()]), 
-            media_type="text/csv", 
-            headers=headers)
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers=headers
+        )
 
     except Exception as e:
         logger.error(f"CSV download error: {e}")

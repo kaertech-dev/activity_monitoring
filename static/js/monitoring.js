@@ -467,7 +467,9 @@ function triggerCsvDownload(startDate, endDate) {
             a.style.display = 'none';
             a.href = url;
             // Use the same filename logic as the backend
-            const fileDate = startDate.replace(/-/g, '') || new Date().toISOString().split('T')[0].replace(/-/g, '');
+            const fileDate = startDate 
+                ? startDate.replace(/-/g, '') 
+                : new Date().toISOString().split('T')[0].replace(/-/g, '');
             a.download = `production_data_7am_${fileDate}.csv`;
             document.body.appendChild(a);
             a.click();
@@ -505,21 +507,12 @@ document.getElementById('weekform')?.addEventListener('submit', function(e) {
     const weekInput = document.getElementById('week').value;
     
     if (weekInput) {
-        const [year, week] = weekInput.split("-W");
-        const firstDayOfYear = new Date(year, 0, 1);
-        const firstWeekDay = firstDayOfYear.getDay();
-        const weekStartOffset = (firstWeekDay <= 4 ? firstWeekDay - 1 : firstWeekDay - 8);
-        const weekStart = new Date(firstDayOfYear.getTime() + ((week - 1) * 7 + (1 - weekStartOffset)) * 86400000);
+        // Just pass the week string, backend does the heavy lifting
+        window.location.href = `/?week=${weekInput}`;
 
-        const startDate = weekStart.toISOString().split('T')[0];
-        const endDate = new Date(weekStart);
-        endDate.setDate(endDate.getDate() + 6);
-        const endDateStr = endDate.toISOString().split('T')[0];
-
-        // Update URL to reflect date selection
-        window.location.href = `/?start_date=${startDate}&end_date=${endDateStr}`;
-
-        // Trigger CSV download
-        triggerCsvDownload(startDate, endDateStr);
+        // Trigger CSV download directly with week param
+        const params = new URLSearchParams({ week: weekInput });
+        const downloadUrl = `/api/download_csv?${params.toString()}`;
+        triggerCsvDownloadWithUrl(downloadUrl);
     }
 });
