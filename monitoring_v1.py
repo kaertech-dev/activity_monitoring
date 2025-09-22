@@ -711,10 +711,6 @@ async def get_models_and_stations(
         logger.error(f"Data-based models/stations API error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch models and stations: {str(e)}")
 
-import re
-import csv
-import io
-from datetime import datetime, timedelta
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
