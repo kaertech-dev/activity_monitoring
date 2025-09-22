@@ -136,7 +136,7 @@ def get_production_start_time(target_date: str = None) -> Tuple[datetime, dateti
         current_time = datetime.now()
         # If current time is before 7 AM, consider it part of previous production day
         if current_time.hour < 7:
-            base_date = current_time.date() - timedelta(days=1)
+            base_date = current_time.date() - timedelta(days=0)
         else:
             base_date = current_time.date()
     
