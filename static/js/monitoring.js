@@ -470,7 +470,7 @@ function triggerCsvDownload(startDate, endDate) {
             const fileDate = startDate 
                 ? startDate.replace(/-/g, '') 
                 : new Date().toISOString().split('T')[0].replace(/-/g, '');
-            a.download = `production_data_7am_${fileDate}.csv`;
+            a.download = `production_data.csv`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -484,35 +484,3 @@ function triggerCsvDownload(startDate, endDate) {
             setLoadingState(false);
         });
 }
-
-// Handle day form
-document.getElementById('dayform')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const dayInput = document.getElementById('day').value;
-    if (dayInput) {
-        const startDate = dayInput;
-        const endDate = startDate; // For day selection, start and end are the same
-
-        // Update URL to reflect date selection
-        window.location.href = `/?start_date=${startDate}&end_date=${endDate}`;
-
-        // Trigger CSV download
-        triggerCsvDownload(startDate, endDate);
-    }
-});
-
-// Handle week form
-document.getElementById('weekform')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const weekInput = document.getElementById('week').value;
-    
-    if (weekInput) {
-        // Just pass the week string, backend does the heavy lifting
-        window.location.href = `/?week=${weekInput}`;
-
-        // Trigger CSV download directly with week param
-        const params = new URLSearchParams({ week: weekInput });
-        const downloadUrl = `/api/download_csv?${params.toString()}`;
-        triggerCsvDownloadWithUrl(downloadUrl);
-    }
-});
