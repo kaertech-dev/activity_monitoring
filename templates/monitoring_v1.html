@@ -144,6 +144,8 @@
                                 {% elif columns[idx] == 'Status' %}
                                     {% if val == 'ON TARGET' %}
                                         <span class="square green" title="ON TARGET"></span>
+                                    {% elif val == 'ORANGE TARGET' %}
+                                        <span class="square orange" title="ORANGE TARGET"></span>
                                     {% else %}
                                         <span class="square red" title="BELOW TARGET"></span>
                                     {% endif %}

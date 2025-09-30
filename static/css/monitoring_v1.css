@@ -91,6 +91,10 @@ tr:nth-child(odd) {
         border-radius: 10px;
 }
 
+.orange {
+    background-color: orange;
+    border-radius: 10px;
+}
 .red {
     background-color: red;
     border-radius: 10px;

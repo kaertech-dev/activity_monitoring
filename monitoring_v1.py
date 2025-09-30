@@ -326,8 +326,13 @@ def process_table_data(
                 # Determine status
                 status = "NO TARGET"
                 if target_time is not None:
-                    status = "ON TARGET" if cycle_time <= target_time else "BELOW TARGET"
-
+                    orange_target = target_time * 0.2
+                    if cycle_time <= target_time:
+                        status = "ON TARGET"
+                    elif cycle_time >= orange_target:
+                        status = "ORANGE TARGET"
+                    else:
+                        status =  "BELOW TARGET"
                 record = ProductionRecord(
                     customer=database,
                     model=model,
