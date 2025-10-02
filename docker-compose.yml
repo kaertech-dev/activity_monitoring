@@ -3,9 +3,15 @@ version: "3.9"
 services:
   monitoring:
     build: .
-    image: monitoring_v1            # builds and tags the image as monitoring_v1
+    image: monitoring_v1
     container_name: activity_monitoring
     ports:
       - "5000:5000"
     restart: always
     command: uvicorn monitoring_v1:app --host 0.0.0.0 --port 5000
+    networks:
+      - manufacturing_network
+
+networks:
+  manufacturing_network:
+    external: true

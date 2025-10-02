@@ -82,11 +82,12 @@ class DatabaseConfig:
             'charset': 'utf8mb4'
         }
         self.pool_size = int(os.getenv('DB_POOL_SIZE', '15'))
-        self.hidden_databases = ['smt', 'onanofflimited']
+        self.hidden_databases = ['smt', 'onanofflimited', 'sys', 'information_schema', 'performance_schema', 'mysql']
 
 db_config = DatabaseConfig()
 
 # Initialize connection pool
+POOL = None
 try:
     POOL = MySQLConnectionPool(
         pool_name="production_monitoring_pool_v2",
@@ -96,7 +97,7 @@ try:
     logger.info(f"Database connection pool initialized with {db_config.pool_size} connections")
 except Exception as e:
     logger.error(f"Failed to initialize database pool: {e}")
-    raise
+    logger.warning("Service will run without database connectivity")
 
 # Thread lock for safe concurrent operations
 lock = threading.Lock()
@@ -104,6 +105,9 @@ lock = threading.Lock()
 @contextmanager
 def get_db_connection():
     """Context manager for database connections"""
+    if POOL is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
     conn = None
     cursor = None
     try:
@@ -463,6 +467,25 @@ async def show_operator_en_today(
 ):
     """Main dashboard endpoint with 7 AM production day start"""
     try:
+        if POOL is None:
+            # Return template with no data if database unavailable
+            return templates.TemplateResponse("monitoring_v1.html", {
+                "request": request,
+                "rows": [],
+                "columns": ['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status'],
+                "current_date": datetime.now().strftime('%B %d, %Y'),
+                "start_date": start_date,
+                "end_date": end_date,
+                "selected_db": filters["customer"],
+                "selected_model": filters["model"],
+                "selected_station": filters["station"],
+                "db": [],
+                "models": [],
+                "stations": [],
+                "total_records": 0,
+                "error_message": "Database connection unavailable"
+            })
+        
         records, date_str, active_databases, models, stations = fetch_production_data(start_date, end_date)
         filtered_records = apply_filters(records, filters)
         
@@ -471,10 +494,12 @@ async def show_operator_en_today(
         
         # Enhanced date display with production day info
         if start_date and end_date:
-            current_date_display = f"{start_date} → {end_date}"
+            start_formatted = datetime.strptime(start_date, '%Y-%m-%d').strftime('%B %d, %Y')
+            end_formatted = datetime.strptime(end_date, '%Y-%m-%d').strftime('%B %d, %Y')
+            current_date_display = f"{start_formatted} → {end_formatted}"
         else:
             start_dt, end_dt = get_production_start_time()
-            current_date_display = f"{start_dt.strftime('%Y-%m-%d')}"# (from 7:00 AM)
+            current_date_display = start_dt.strftime('%B %d, %Y')
         
         return templates.TemplateResponse("monitoring_v1.html", {
             "request": request,
@@ -895,12 +920,16 @@ async def get_production_day_info():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint with production day info"""
+    """Simple health check endpoint"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/health/db")
+async def health_check_with_db():
+    """Health check endpoint with database connection"""
     try:
         with get_db_connection() as cursor:
             cursor.execute("SELECT 1")
             
-            # Add production day timing to health check
             start_dt, end_dt = get_production_start_time()
             current_time = datetime.now()
             is_production_hours = start_dt <= current_time <= end_dt
@@ -924,9 +953,9 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "main:app",
+        "monitoring_v1:app",
         host="0.0.0.0",
-        port=8000,
+        port=5000,
         reload=False,
         log_level="info"
     )
