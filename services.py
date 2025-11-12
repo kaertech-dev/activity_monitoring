@@ -1,11 +1,11 @@
-# activity_monitoring/services.py
-"""Business logic and data processing services"""
+"""Business logic and data processing services - Based on break_logs only"""
 from typing import Optional, List, Dict, Tuple
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import numpy as np
 from scipy import stats
+from datetime import datetime, timedelta
 
 from models import ProductionRecord
 from database import get_db_connection, lock
@@ -15,13 +15,16 @@ from config import db_config
 
 logger = logging.getLogger(__name__)
 
+# UTC offset constant: 7 hours and 15 minutes
+UTC_OFFSET_HOURS = 7.25
+
 def process_table_data(
     database: str, 
     table: str, 
     start_date: Optional[str] = None, 
     end_date: Optional[str] = None
 ) -> List[ProductionRecord]:
-    """Process data from a single table with enhanced statistics and 7 AM start time"""
+    """Process data from a single table using break_logs as primary source"""
     try:
         with get_db_connection() as cursor:
             columns_info = ProductionDataProcessor.get_table_columns(cursor, database, table)
@@ -44,14 +47,19 @@ def process_table_data(
                 where_clause = f"`{date_column}` BETWEEN %s AND %s"
                 params = (start_dt, end_dt)
 
-            # Main grouped query with duration calculation
+            # Parse table name for model and station
+            parts = table.split('_', 1)
+            model = parts[0]
+            station = parts[1] if len(parts) == 2 else ''
+
+            # Query to get operators with their output from production tables
+            # Now also get MIN and MAX timestamps per operator per station
             query = f"""
                 SELECT 
                     operator_en,
                     COUNT(DISTINCT serial_num) as current_output,
-                    MIN(`{date_column}`) as start_time,
-                    MAX(`{date_column}`) as end_time,
-                    TIMESTAMPDIFF(HOUR, MIN(`{date_column}`), NOW()) as duration_hours
+                    MIN(`{date_column}`) as first_record_time,
+                    MAX(`{date_column}`) as last_record_time
                 FROM `{database}`.`{table}`
                 WHERE {where_clause} AND `status` = 1
                 GROUP BY operator_en
@@ -62,15 +70,26 @@ def process_table_data(
             rows = cursor.fetchall()
 
             results = []
-            for operator_en, current_output, start_time, end_time, duration_hours in rows:
-                # Parse table name for model and station
-                parts = table.split('_', 1)
-                model = parts[0]
-                station = parts[1] if len(parts) == 2 else ''
-
-                # Get detailed records for this operator
+            
+            # Adjust date range for break_logs UTC query
+            adjusted_start_dt = start_dt - timedelta(hours=UTC_OFFSET_HOURS)
+            adjusted_end_dt = end_dt - timedelta(hours=UTC_OFFSET_HOURS)
+            
+            for operator_en, current_output, first_record_time, last_record_time in rows:
+                # --- Get break_logs for this operator ---
+                cursor.execute("""
+                    SELECT timestamp, action_type
+                    FROM projectsdb.break_logs
+                    WHERE operator_en = %s
+                    AND timestamp BETWEEN %s AND %s
+                    ORDER BY timestamp ASC
+                """, (operator_en, adjusted_start_dt, adjusted_end_dt))
+                
+                logs = cursor.fetchall()
+                
+                # Get serial numbers for this operator
                 detail_query = f"""
-                    SELECT serial_num, `{date_column}`
+                    SELECT serial_num
                     FROM `{database}`.`{table}`
                     WHERE {where_clause} AND operator_en = %s AND `status` = 1
                     ORDER BY `{date_column}`
@@ -80,57 +99,150 @@ def process_table_data(
                 
                 records = cursor.fetchall()
                 serial_nums = [r[0] for r in records]
-                timestamps = [r[1] for r in records]
 
-                # Calculate cycle time statistics
-                # Calculate cycle time statistics
-                cycle_stats = ProductionDataProcessor.calculate_cycle_statistics(timestamps, current_output)
-                cycle_time = cycle_stats["avg_cycle_time"]
-                individual_durations = cycle_stats.get("durations", [])
-
-                # Check if operator has clicked STOP in projectsdb.break_logs
+                # --- Process break_logs to calculate cycle time and work periods ---
                 try:
-                    cursor.execute("""
-                        SELECT action_type 
-                        FROM projectsdb.break_logs 
-                        WHERE operator_en = %s 
-                        ORDER BY timestamp DESC 
-                        LIMIT 1
-                    """, (operator_en,))
-                    latest_action = cursor.fetchone()
-                    if latest_action and latest_action[0].lower() == "stop":
-                        # If STOP is the latest action, freeze the cycle time
-                        cycle_time = 0
-                except Exception as check_err:
-                    logger.warning(f"Could not verify STOP status for {operator_en}: {check_err}")
+                    # Check if operator has break logs
+                    if not logs:
+                        # NO BREAK LOGS - Use production timestamps as fallback
+                        logger.warning(f"No break_logs for {operator_en} at {model}_{station} - using production data fallback")
+                        
+                        actual_start_time = first_record_time
+                        actual_end_time = last_record_time
+                        
+                        # Calculate duration from production records
+                        total_duration = (last_record_time - first_record_time).total_seconds()
+                        
+                        # Simple cycle time calculation: total time / output
+                        if current_output > 0 and total_duration > 0:
+                            cycle_time = total_duration / current_output
+                        else:
+                            cycle_time = 0
+                        
+                        duration_hours = total_duration / 3600 if total_duration > 0 else 0
+                        individual_durations = [cycle_time] if cycle_time > 0 else []
+                        
+                    else:
+                        # HAS BREAK LOGS - Use break_logs for accurate timing
+                        # Filter break_logs to only those within the station's production timeframe
+                        # Add buffer of 30 minutes before and after to catch relevant start/stop events
+                        station_start_buffer = first_record_time - timedelta(minutes=30)
+                        station_end_buffer = last_record_time + timedelta(minutes=30)
+                        
+                        # Convert to UTC time for comparison with break_logs
+                        station_start_utc = station_start_buffer - timedelta(hours=UTC_OFFSET_HOURS)
+                        station_end_utc = station_end_buffer - timedelta(hours=UTC_OFFSET_HOURS)
+                        
+                        # Filter logs to this station's timeframe
+                        relevant_logs = [
+                            (ts, action) for ts, action in logs 
+                            if station_start_utc <= ts <= station_end_utc
+                        ]
+                        
+                        if not relevant_logs:
+                            # Break logs exist but none in this station's timeframe - use production data
+                            logger.warning(f"No relevant break_logs for {operator_en} at {model}_{station} - using production data")
+                            actual_start_time = first_record_time
+                            actual_end_time = last_record_time
+                            total_duration = (last_record_time - first_record_time).total_seconds()
+                            cycle_time = total_duration / current_output if current_output > 0 and total_duration > 0 else 0
+                            duration_hours = total_duration / 3600 if total_duration > 0 else 0
+                            individual_durations = [cycle_time] if cycle_time > 0 else []
+                        else:
+                            # Process break logs normally
+                            total_active_seconds = 0
+                            start_time_log = None
+                            work_sessions = []
+                            last_stop_time = None
+                            first_start_time = None
+                            
+                            for ts, action in relevant_logs:
+                                # Apply UTC offset to convert timestamps to local time
+                                local_ts = ts + timedelta(hours=UTC_OFFSET_HOURS)
+                                
+                                if action.lower() == "start":
+                                    # Operator starts working
+                                    start_time_log = local_ts
+                                    # Capture the first start time
+                                    if first_start_time is None:
+                                        first_start_time = local_ts
+                                elif action.lower() == "stop" and start_time_log:
+                                    # Operator stops working - calculate this work session duration
+                                    session_duration = (local_ts - start_time_log).total_seconds()
+                                    if session_duration > 0:
+                                        total_active_seconds += session_duration
+                                        work_sessions.append({
+                                            'start': start_time_log,
+                                            'stop': local_ts,
+                                            'duration': session_duration
+                                        })
+                                    last_stop_time = local_ts
+                                    start_time_log = None
 
-                # Alternative calculation: total time / output count
-                if start_time and end_time and cycle_time > 0:
-                    total_duration_calc = (end_time - start_time).total_seconds() / current_output
-                    # Use the more conservative (higher) cycle time
-                    cycle_time = max(cycle_time, total_duration_calc)
+                            # Set actual start time from break_logs for THIS STATION
+                            actual_start_time = first_start_time if first_start_time else first_record_time
 
+                            # Handle case where operator started but hasn't stopped yet (within this station's timeframe)
+                            if start_time_log:
+                                # Use the last record time as a proxy for when they were still working
+                                current_stop = last_record_time
+                                session_duration = (current_stop - start_time_log).total_seconds()
+                                if session_duration > 0:
+                                    total_active_seconds += session_duration
+                                    work_sessions.append({
+                                        'start': start_time_log,
+                                        'stop': current_stop,
+                                        'duration': session_duration
+                                    })
+                                actual_end_time = current_stop
+                                logger.info(f"Operator {operator_en} at {model}_{station} - using last record time as end")
+                            else:
+                                # Operator has stopped within this station's timeframe
+                                actual_end_time = last_stop_time if last_stop_time else last_record_time
+
+                            # Compute average cycle time: total active time / total output
+                            if current_output > 0 and total_active_seconds > 0:
+                                cycle_time = total_active_seconds / current_output
+                                logger.info(f"Operator {operator_en} at {model}_{station}: {len(work_sessions)} sessions, "
+                                          f"{total_active_seconds:.0f}s active, {current_output} output, "
+                                          f"cycle time: {cycle_time:.2f}s")
+                            else:
+                                cycle_time = 0
+                                logger.warning(f"Operator {operator_en} at {model}_{station}: insufficient data - "
+                                             f"output={current_output}, active_time={total_active_seconds:.0f}s")
+
+                            individual_durations = [cycle_time] if cycle_time > 0 else []
+                            duration_hours = total_active_seconds / 3600 if total_active_seconds > 0 else 0
+
+                except Exception as err:
+                    logger.error(f"Could not compute cycle time for {operator_en} at {model}_{station}: {err}")
+                    cycle_time = 0
+                    individual_durations = []
+                    actual_start_time = first_record_time
+                    actual_end_time = last_record_time
+                    duration_hours = 0
 
                 # Get target time
                 target_time = ProductionDataProcessor.get_target_time(cursor, database, model, station)
 
-                # Determine status
                 # Determine status based on cycle time vs target
-                status = "NO TARGET"
-                if target_time is not None:
+                if target_time is None:
+                    # If no target but there is a valid cycle_time, mark as green
+                    if cycle_time and cycle_time > 0:
+                        status = "ON TARGET"
+                    else:
+                        status = "NO TARGET"
+                else:
                     # Orange threshold: target + 20% of target
-                    orange_threshold = target_time + (target_time * 0.2)  # e.g., 50 + 10 = 60
+                    orange_threshold = target_time + (target_time * 0.2)
                     
                     if cycle_time <= target_time:
-                        # Cycle time is at or below target - GREEN
                         status = "ON TARGET"
                     elif cycle_time <= orange_threshold:
-                        # Cycle time is between target and target+20% - ORANGE
                         status = "ORANGE TARGET"
                     else:
-                        # Cycle time exceeds target+20% - RED
                         status = "BELOW TARGET"
-                
+
                 record = ProductionRecord(
                     customer=database,
                     model=model,
@@ -139,8 +251,8 @@ def process_table_data(
                     output=current_output,
                     target_time=target_time,
                     cycle_time=cycle_time,
-                    start_time=start_time,
-                    end_time=end_time,
+                    start_time=actual_start_time,
+                    end_time=actual_end_time,
                     status=status,
                     serial_nums=serial_nums,
                     duration_hours=duration_hours,
@@ -182,7 +294,7 @@ def fetch_production_data(
     start_date: Optional[str] = None, 
     end_date: Optional[str] = None
 ) -> Tuple[List[ProductionRecord], str, List[str], List[str], List[str]]:
-    """Fetch all production data with parallel processing and 7 AM start time"""
+    """Fetch all production data with parallel processing - based on break_logs"""
     databases, tables_by_db = get_databases_and_tables()
     
     all_records = []
@@ -204,7 +316,7 @@ def fetch_production_data(
             tasks.append((db, table))
     
     # Execute tasks in parallel
-    max_workers = min(len(tasks), db_config.pool_size, 20)  # Cap at 20 workers
+    max_workers = min(len(tasks), db_config.pool_size, 20)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_task = {
             executor.submit(process_table_data, db, table, start_date, end_date): (db, table)
@@ -214,7 +326,7 @@ def fetch_production_data(
         for future in as_completed(future_to_task):
             db, table = future_to_task[future]
             try:
-                results = future.result(timeout=30)  # 30 second timeout per task
+                results = future.result(timeout=30)
                 if results:
                     with lock:
                         all_records.extend(results)

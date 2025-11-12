@@ -1,6 +1,6 @@
 """Production data processing and statistics"""
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,19 +49,22 @@ class ProductionDataProcessor:
     
     @staticmethod
     def calculate_cycle_statistics(timestamps: List[datetime], output_count: int) -> Dict[str, float]:
-        """Calculate various cycle time statistics"""
+        """Calculate various cycle time statistics with 8-hour shift adjustment"""
         if len(timestamps) < 2:
             return {"avg_cycle_time": 0, "durations": []}
         
-        # Calculate durations between consecutive records
+        # Add 8 hours to all timestamps to shift from Shift B to Shift A equivalent
+        adjusted_timestamps = [ts + timedelta(hours=7.75) for ts in timestamps]
+        
+        # Calculate durations between consecutive records using adjusted timestamps
         durations = []
-        for i in range(1, len(timestamps)):
-            diff = (timestamps[i] - timestamps[i-1]).total_seconds()
+        for i in range(1, len(adjusted_timestamps)):
+            diff = (adjusted_timestamps[i] - adjusted_timestamps[i-1]).total_seconds()
             if diff > 0:
                 durations.append(diff)
         
         if not durations:
-            total_duration = (timestamps[-1] - timestamps[0]).total_seconds()
+            total_duration = (adjusted_timestamps[-1] - adjusted_timestamps[0]).total_seconds()
             avg_cycle_time = total_duration / output_count if output_count > 0 else 0
             return {"avg_cycle_time": avg_cycle_time, "durations": []}
         
@@ -75,5 +78,5 @@ class ProductionDataProcessor:
         return {
             "avg_cycle_time": avg_3_shortest,
             "durations": durations,
-            "total_duration": (timestamps[-1] - timestamps[0]).total_seconds()
+            "total_duration": (adjusted_timestamps[-1] - adjusted_timestamps[0]).total_seconds()
         }
