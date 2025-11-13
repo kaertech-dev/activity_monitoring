@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 import logging
+from enum import Enum
 
 from database import get_db_connection
 from break_manager import BreakManager
@@ -13,12 +14,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-class BreakAction(BaseModel):
-    """Model for break action requests"""
-    operator_en: str
-    action_type: str  # 'stop', 'play', 'pause', 'resume', 'break_start', 'break_end'
-    station: Optional[str] = None
-    notes: Optional[str] = None
+class ActionType(str, Enum):  
+    STOP = "stop"  
+    PLAY = "play"  
+    PAUSE = "pause"  
+    RESUME = "resume"  
+    BREAK_START = "break_start"  
+    BREAK_END = "break_end"  
+
+class BreakAction(BaseModel):  
+    """Model for break action requests"""  
+    operator_en: str  
+    action_type: ActionType  
+    station: Optional[str] = None  
+    notes: Optional[str] = None  
 
 
 @router.post("/api/break/action", response_class=JSONResponse)

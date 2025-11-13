@@ -79,6 +79,13 @@ def process_table_data(
                 # --- Get break_logs for this operator ---
                 cursor.execute("""
                     SELECT timestamp, action_type
+                      FROM projectsdb.break_logs
+                    WHERE operator_en = %s
+                    AND timestamp BETWEEN %s AND %s
+                    ORDER BY timestamp ASC
+                """, (operator_en, adjusted_start_dt, adjusted_end_dt))
+                cursor.execute("""
+                    SELECT timestamp, action_type
                     FROM projectsdb.break_logs
                     WHERE operator_en = %s
                     AND timestamp BETWEEN %s AND %s

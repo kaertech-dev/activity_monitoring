@@ -10,6 +10,11 @@ class ProductionDataProcessor:
     @staticmethod
     def get_table_columns(cursor, database: str, table: str) -> List[tuple]:
         """Get column information for a table"""
+         # Validate database and table names to prevent SQL injection  
+        if not database.replace('_', '').replace('-', '').isalnum():  
+            raise ValueError("Invalid database name")  
+        if not table.replace('_', '').replace('-', '').isalnum():  
+            raise ValueError("Invalid table name")  
         cursor.execute(f"USE `{database}`")
         cursor.execute(f"DESCRIBE `{table}`")
         return cursor.fetchall()
