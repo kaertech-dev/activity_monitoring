@@ -1,4 +1,4 @@
-"""Business logic and data processing services - Based on break_logs only"""
+"""Business logic and data processing services - Optimized version"""
 from typing import Optional, List, Dict, Tuple
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -6,6 +6,7 @@ import logging
 import numpy as np
 from scipy import stats
 from datetime import datetime, timedelta
+import time
 
 from models import ProductionRecord
 from database import get_db_connection, lock
@@ -25,6 +26,7 @@ def process_table_data(
     end_date: Optional[str] = None
 ) -> List[ProductionRecord]:
     """Process data from a single table using break_logs as primary source"""
+    start_time = time.time()
     try:
         with get_db_connection() as cursor:
             columns_info = ProductionDataProcessor.get_table_columns(cursor, database, table)
@@ -53,7 +55,6 @@ def process_table_data(
             station = parts[1] if len(parts) == 2 else ''
 
             # Query to get operators with their output from production tables
-            # Now also get MIN and MAX timestamps per operator per station
             query = f"""
                 SELECT 
                     operator_en,
@@ -69,32 +70,40 @@ def process_table_data(
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
+            if not rows:
+                return []
+
             results = []
             
             # Adjust date range for break_logs UTC query
             adjusted_start_dt = start_dt - timedelta(hours=UTC_OFFSET_HOURS)
             adjusted_end_dt = end_dt - timedelta(hours=UTC_OFFSET_HOURS)
             
-            for operator_en, current_output, first_record_time, last_record_time in rows:
-                # --- Get break_logs for this operator ---
-                cursor.execute("""
-                    SELECT timestamp, action_type
-                      FROM projectsdb.break_logs
-                    WHERE operator_en = %s
-                    AND timestamp BETWEEN %s AND %s
-                    ORDER BY timestamp ASC
-                """, (operator_en, adjusted_start_dt, adjusted_end_dt))
-                cursor.execute("""
-                    SELECT timestamp, action_type
-                    FROM projectsdb.break_logs
-                    WHERE operator_en = %s
-                    AND timestamp BETWEEN %s AND %s
-                    ORDER BY timestamp ASC
-                """, (operator_en, adjusted_start_dt, adjusted_end_dt))
-                
-                logs = cursor.fetchall()
-                
-                # Get serial numbers for this operator
+            # OPTIMIZATION: Batch fetch all break_logs for all operators at once
+            operator_list = [row[0] for row in rows]
+            
+            # Single query for all operators in this table
+            placeholders = ','.join(['%s'] * len(operator_list))
+            batch_break_logs_query = f"""
+                SELECT operator_en, timestamp, action_type
+                FROM projectsdb.break_logs
+                WHERE operator_en IN ({placeholders})
+                AND timestamp BETWEEN %s AND %s
+                ORDER BY operator_en, timestamp ASC
+            """
+            cursor.execute(batch_break_logs_query, tuple(operator_list) + (adjusted_start_dt, adjusted_end_dt))
+            all_logs = cursor.fetchall()
+            
+            # Group logs by operator for faster lookup
+            logs_by_operator = {}
+            for operator_en, timestamp, action_type in all_logs:
+                if operator_en not in logs_by_operator:
+                    logs_by_operator[operator_en] = []
+                logs_by_operator[operator_en].append((timestamp, action_type))
+            
+            # OPTIMIZATION: Batch fetch all serial numbers
+            serial_nums_by_operator = {}
+            for operator_en in operator_list:
                 detail_query = f"""
                     SELECT serial_num
                     FROM `{database}`.`{table}`
@@ -103,16 +112,20 @@ def process_table_data(
                 """
                 detail_params = params + (operator_en,)
                 cursor.execute(detail_query, detail_params)
-                
                 records = cursor.fetchall()
-                serial_nums = [r[0] for r in records]
+                serial_nums_by_operator[operator_en] = [r[0] for r in records]
+            
+            for operator_en, current_output, first_record_time, last_record_time in rows:
+                # Get pre-fetched logs and serial numbers
+                logs = logs_by_operator.get(operator_en, [])
+                serial_nums = serial_nums_by_operator.get(operator_en, [])
 
                 # --- Process break_logs to calculate cycle time and work periods ---
                 try:
                     # Check if operator has break logs
                     if not logs:
                         # NO BREAK LOGS - Use production timestamps as fallback
-                        logger.warning(f"No break_logs for {operator_en} at {model}_{station} - using production data fallback")
+                        logger.debug(f"No break_logs for {operator_en} at {model}_{station} - using production data fallback")
                         
                         actual_start_time = first_record_time
                         actual_end_time = last_record_time
@@ -132,7 +145,6 @@ def process_table_data(
                     else:
                         # HAS BREAK LOGS - Use break_logs for accurate timing
                         # Filter break_logs to only those within the station's production timeframe
-                        # Add buffer of 30 minutes before and after to catch relevant start/stop events
                         station_start_buffer = first_record_time - timedelta(minutes=30)
                         station_end_buffer = last_record_time + timedelta(minutes=30)
                         
@@ -147,8 +159,8 @@ def process_table_data(
                         ]
                         
                         if not relevant_logs:
-                            # Break logs exist but none in this station's timeframe - use production data
-                            logger.warning(f"No relevant break_logs for {operator_en} at {model}_{station} - using production data")
+                            # Break logs exist but none in this station's timeframe
+                            logger.debug(f"No relevant break_logs for {operator_en} at {model}_{station} - using production data")
                             actual_start_time = first_record_time
                             actual_end_time = last_record_time
                             total_duration = (last_record_time - first_record_time).total_seconds()
@@ -168,13 +180,10 @@ def process_table_data(
                                 local_ts = ts + timedelta(hours=UTC_OFFSET_HOURS)
                                 
                                 if action.lower() == "start":
-                                    # Operator starts working
                                     start_time_log = local_ts
-                                    # Capture the first start time
                                     if first_start_time is None:
                                         first_start_time = local_ts
                                 elif action.lower() == "stop" and start_time_log:
-                                    # Operator stops working - calculate this work session duration
                                     session_duration = (local_ts - start_time_log).total_seconds()
                                     if session_duration > 0:
                                         total_active_seconds += session_duration
@@ -186,12 +195,10 @@ def process_table_data(
                                     last_stop_time = local_ts
                                     start_time_log = None
 
-                            # Set actual start time from break_logs for THIS STATION
                             actual_start_time = first_start_time if first_start_time else first_record_time
 
-                            # Handle case where operator started but hasn't stopped yet (within this station's timeframe)
+                            # Handle case where operator started but hasn't stopped yet
                             if start_time_log:
-                                # Use the last record time as a proxy for when they were still working
                                 current_stop = last_record_time
                                 session_duration = (current_stop - start_time_log).total_seconds()
                                 if session_duration > 0:
@@ -202,21 +209,17 @@ def process_table_data(
                                         'duration': session_duration
                                     })
                                 actual_end_time = current_stop
-                                logger.info(f"Operator {operator_en} at {model}_{station} - using last record time as end")
                             else:
-                                # Operator has stopped within this station's timeframe
                                 actual_end_time = last_stop_time if last_stop_time else last_record_time
 
-                            # Compute average cycle time: total active time / total output
+                            # Compute average cycle time
                             if current_output > 0 and total_active_seconds > 0:
                                 cycle_time = total_active_seconds / current_output
-                                logger.info(f"Operator {operator_en} at {model}_{station}: {len(work_sessions)} sessions, "
+                                logger.debug(f"Operator {operator_en} at {model}_{station}: {len(work_sessions)} sessions, "
                                           f"{total_active_seconds:.0f}s active, {current_output} output, "
                                           f"cycle time: {cycle_time:.2f}s")
                             else:
                                 cycle_time = 0
-                                logger.warning(f"Operator {operator_en} at {model}_{station}: insufficient data - "
-                                             f"output={current_output}, active_time={total_active_seconds:.0f}s")
 
                             individual_durations = [cycle_time] if cycle_time > 0 else []
                             duration_hours = total_active_seconds / 3600 if total_active_seconds > 0 else 0
@@ -234,13 +237,11 @@ def process_table_data(
 
                 # Determine status based on cycle time vs target
                 if target_time is None:
-                    # If no target but there is a valid cycle_time, mark as green
                     if cycle_time and cycle_time > 0:
                         status = "ON TARGET"
                     else:
                         status = "NO TARGET"
                 else:
-                    # Orange threshold: target + 20% of target
                     orange_threshold = target_time + (target_time * 0.2)
                     
                     if cycle_time <= target_time:
@@ -267,6 +268,10 @@ def process_table_data(
                 )
                 results.append(record)
 
+            elapsed = time.time() - start_time
+            if elapsed > 2.0:
+                logger.warning(f"Slow table processing: {database}.{table} took {elapsed:.2f}s")
+            
             return results
 
     except Exception as e:
@@ -297,11 +302,26 @@ def get_databases_and_tables() -> Tuple[List[str], Dict[str, List[str]]]:
         logger.error(f"Error getting databases and tables: {e}")
         return [], {}
 
+# OPTIMIZATION: Add simple in-memory cache for production data
+_production_data_cache = {}
+_cache_timeout = 60  # 60 seconds
+
 def fetch_production_data(
     start_date: Optional[str] = None, 
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    use_cache: bool = True
 ) -> Tuple[List[ProductionRecord], str, List[str], List[str], List[str]]:
-    """Fetch all production data with parallel processing - based on break_logs"""
+    """Fetch all production data with parallel processing and caching"""
+    
+    # Check cache
+    cache_key = f"{start_date}_{end_date}"
+    if use_cache and cache_key in _production_data_cache:
+        cached_data, cached_time = _production_data_cache[cache_key]
+        if time.time() - cached_time < _cache_timeout:
+            logger.info(f"Using cached production data for {cache_key}")
+            return cached_data
+    
+    start_time = time.time()
     databases, tables_by_db = get_databases_and_tables()
     
     all_records = []
@@ -322,6 +342,8 @@ def fetch_production_data(
         for table in tables:
             tasks.append((db, table))
     
+    logger.info(f"Processing {len(tasks)} tables with parallel execution")
+    
     # Execute tasks in parallel
     max_workers = min(len(tasks), db_config.pool_size, 20)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -333,7 +355,7 @@ def fetch_production_data(
         for future in as_completed(future_to_task):
             db, table = future_to_task[future]
             try:
-                results = future.result(timeout=30)
+                results = future.result(timeout=45)  # Increased timeout
                 if results:
                     with lock:
                         all_records.extend(results)
@@ -344,13 +366,22 @@ def fetch_production_data(
             except Exception as e:
                 logger.error(f"Error processing {db}.{table}: {e}")
     
-    return (
+    result = (
         all_records,
         date_display,
         sorted(active_databases),
         sorted(models),
         sorted(stations)
     )
+    
+    # Cache the result
+    if use_cache:
+        _production_data_cache[cache_key] = (result, time.time())
+    
+    elapsed = time.time() - start_time
+    logger.info(f"Fetched production data in {elapsed:.2f}s - {len(all_records)} records")
+    
+    return result
 
 def apply_filters(records: List[ProductionRecord], filters: Dict[str, Optional[str]]) -> List[ProductionRecord]:
     """Apply filters to production records"""
@@ -400,3 +431,9 @@ def get_operator_statistics(records: List[ProductionRecord], operator_name: str)
         "stations_count": len(set(f"{r.customer}-{r.model}-{r.station}" for r in filtered_records)),
         "records": filtered_records
     }
+
+def clear_production_cache():
+    """Clear the production data cache - useful for forced refresh"""
+    global _production_data_cache
+    _production_data_cache = {}
+    logger.info("Production data cache cleared")
