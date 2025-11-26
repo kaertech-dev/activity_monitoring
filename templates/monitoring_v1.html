@@ -1,4 +1,3 @@
-<!--activity_monitoring/templates/monitoring_v1.html-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,99 +7,52 @@
     <title>Activity Monitoring</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-/* Fixed CSS with higher specificity to prevent Bootstrap override */
-
-img {
-    border: 2px solid black;
-    border-radius: 10px;
-}
-
 body {
     font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-    margin: 20px;
     background-color: #f0f2f5;
     color: #333;
 }
 
 h1 {
-    text-align: center;
     color: #2c3e50;
     font-family: Arial;
-    font-size: clamp(20px, 4vw, 50px);
     font-weight: bold;
+    font-size: clamp(1.5rem, 4vw, 3rem);
 }
 
-h2 {
-    font-family: Arial;
-    font-size: 60px;
-}
-
-.table-container {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 25px auto;
-    min-width: 800px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;
+/* Table Styles */
+.table {
     background-color: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
-td:hover, th:hover {
-    transform: scale(1.2);
-    background-color: #8efd8e !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    z-index: 1;
-    position: relative;
-} 
-
-th, td {
-    padding: 12px 15px;
-    text-align: center;
-    border-bottom: 1px solid #ffffff;
-    font-size: clamp(20px, 2vw, 20px);
-    font-family: 'Arial';
-    font-weight: bolder;
-    transition: transform 0.3s ease, background-color 0.3s ease;
-}
-
-/* Alternate row colors */
-tr:nth-child(even) {
-    background-color: hsla(120, 84%, 75%, 0.068) !important;
-}
-
-tr:nth-child(odd) {
-    background-color: #ffffff;
-}
-
-/* More specific selectors that override Bootstrap's styles */
 .table th {
     background-color: #27c033 !important;
     color: white !important;
     font-weight: bold;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 15px;
 }
 
 .table td {
-    background-color: #ffffff !important;
-    font-weight: bold;
+    font-weight: 600;
     color: #333;
+    padding: 12px 15px;
+    font-size: 1rem;
 }
 
-.table tr:nth-child(even) td {
-    background-color: hsla(120, 51%, 75%, 0.3) !important;
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(39, 192, 51, 0.05) !important;
 }
 
-.table-hover tbody tr:hover td,
-.table-hover tbody tr:hover th {
+.table-hover tbody tr:hover {
     background-color: #f1f1f1 !important;
 }
 
-/* STATUS INDICATOR SQUARES - Enhanced specificity to prevent override */
-span.square {
+/* Status Indicator Squares */
+.square {
     height: 35px;
     width: 50px;
     border-radius: 10px;
@@ -108,52 +60,26 @@ span.square {
     border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
-/* Use !important and more specific selectors to ensure colors are applied few*/
-td span.square.green,
-.table td span.square.green {
-    background-color: #28a745 !important;  /* Bootstrap's success green */
+.square.green {
+    background-color: #28a745 !important;
     border-color: #1e7e34 !important;
 } 
 
-/* ...existing code...  */
-td span.square.orange,
-.table td span.square.orange {
-    background-color: hsl(27, 98%, 54%) !important;  /* orange */
+.square.orange {
+    background-color: hsl(27, 98%, 54%) !important;
     border-color: hsl(27, 98%, 44%) !important;
 }
-/* ...existing code... */
-td span.square.red,
-.table td span.square.red {
-    background-color: #dc3545 !important;  /* Bootstrap's danger red */
+
+.square.red {
+    background-color: #dc3545 !important;
     border-color: #bd2130 !important;
-}
- 
-th {
-    background-color: #27c033;
-    color: #fff;
-    font-size: 20px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-tr:hover {
-    background-color: #f1f1f1;
-}
-
-.footer {
-    text-align: center;
-    margin-top: 40px;
-    color: #777;
 }
 
 /* Dropdown styles */
-#customer, 
-#model, 
-#station {
-    min-width: 180px;
-    max-width: 250px;
+select {
+    min-width: 140px;
     padding: 6px 10px;
-    font-size: 16px;
+    font-size: 0.95rem;
     border: 2px solid #27c033;
     border-radius: 6px;
     background-color: #fff;
@@ -161,162 +87,272 @@ tr:hover {
     transition: all 0.2s ease-in-out;
 }
 
-#customer:hover, 
-#model:hover, 
-#station:hover {
+select:hover {
     border-color: #1a8022;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-#no-record td {
-    background-color: #27c033 !important;
-    color: #fff !important;
-    font-weight: bold;
-    text-align: center;
+/* Form container */
+#form-container {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 1050;
 }
 
+#form-container form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#form-container label {
+    font-weight: bold;
+    margin: 0;
+}
+
+#form-container input {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#form-container button {
+    padding: 4px 12px;
+    border-radius: 4px;
+}
+
+/* Mobile Responsive Styles */
 @media screen and (max-width: 768px) {
-    table, thead, tbody, th, td, tr {
+    h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Make filter form stack vertically */
+    #filter-form .d-flex {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    
+    #filter-form .gap-2 {
+        width: 100%;
+    }
+    
+    #filter-form label {
         display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 600;
     }
     
-    thead {
+    #filter-form select {
+        width: 100%;
+        min-width: 100%;
+        margin-bottom: 0.75rem;
+    }
+    
+    #filterSubmit,
+    .btn-success {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+    
+    /* Form container mobile positioning */
+    #form-container {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        right: auto !important;
+        width: 90% !important;
+        max-width: 400px;
+    }
+    
+    /* Dropdown button positioning */
+    .dropdown {
+        position: static;
+    }
+    
+    /* Stack table cells on mobile */
+    .table-responsive {
+        border: none;
+    }
+    
+    .table thead {
         display: none;
     }
     
-    th {
-        display: none;
+    .table tbody tr {
+        display: block;
+        margin-bottom: 1rem;
+        border: 2px solid #27c033;
+        border-radius: 8px;
+        overflow: hidden;
     }
     
-    td {
-        position: relative;
-        padding-left: 50%;
-        text-align: left;
-        font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    .table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border: none;
+        border-bottom: 1px solid #e0e0e0;
+        text-align: right !important;
     }
     
-    td::before {
+    .table tbody td:last-child {
+        border-bottom: none;
+    }
+    
+    .table tbody td::before {
         content: attr(data-label);
-        position: absolute;
-        left: 15px;
         font-weight: bold;
-        color: #333;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        color: #27c033;
+        text-align: left;
+        flex: 0 0 40%;
+    }
+    
+    .table tbody td .btn-info {
+        font-size: 1rem !important;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    h1 {
+        font-size: 1.25rem;
+    }
+    
+    .table tbody td {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    
+    .table tbody td::before {
+        flex: none;
     }
 }
     </style>
-
 </head>
 
-<body class="p-2">
-    <h1 class="text-center">Activity Monitoring ({{ current_date }})</h1>
-    <!-- Dropdown to choose time period -->
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-2 justify-content-end position-relative" style="height: auto">
-        <div class="dropdown">
-            <button class="btn btn-secondary dropdown-toggle" type="button" id="arrowDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-            </button>
-            <!--dropdown forms-->
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="arrowDropdown">
-                <li><a class="dropdown-item" href="#" data-target="#dayform">Day</a></li>
-                <li><a class="dropdown-item" href="#" data-target="#weekform">Week</a></li>
-                <li><a class="dropdown-item" href="#" data-target="#monthform">Month</a></li>
-                <li><a class="dropdown-item" href="#" data-target="#rangeform">Range</a></li>
-                <!--<li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#" data-target="#customerform">Customer</a></li>-->
-            </ul>
-        </div>
-        <div id="form-container" style="position: absolute; width: max-content; display: none; background: none; margin-top: 0.5rem; top: 45px; right: 160px;">
-            <!--week form-->
-            <form id="weekform" style="display: none;">
-                <label for="week">Select week:</label>
-                <input type="week" id="week" name="week" required>
-                <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
-            </form>
-
-            <!--month form-->
-            <form id="monthform" style="display: none;">
-                <label for="month">Select month:</label>
-                <input type="month" id="month" name="month" required>
-                <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
-            </form>
-
-            <!--day form-->
-            <form id="dayform" style="display: none;">
-                <label for="day" style="font-weight: bold;">Select day:</label>
-                <input type="date" id="day" name="day" required>
-                <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
-            </form>
-
-            <!--range date-->
-            <form id="rangeform">
-                <label>Start Date: 
-                    <input type="date" class="action-start" name="start_date" value="{{ current_date.split(' → ')[0] }}">
-                </label>
-                <label>End Date: 
-                    <input type="date" class="action-end" name="end_date" value="{{ current_date.split(' → ')[1] if '→' in current_date else current_date }}">
-                </label>
-                <button type="submit" class="action-btn filter-btn" style="border-style: solid; border-width: 1px; border-color: #ccc;">Filter</button>
-            </form>
-
-            <!--customer-->
-            <form id="customerform" style="display: none;">
-            </form>
-
-        </div>
-        <div id="spinner" class="spinner-border text-primary" role="status" style="display: none;">
-            <span class="visually-hidden">loading...</span>
-        </div>
-    </div>
-
-    <form id="filter-form" method="get">
-        <div class="d-flex justify-content-between align-items-center mb-3" style="flex-wrap: wrap; gap: 1rem;">
-            <!-- Dropdowns -->
-            <div class="d-flex gap-2 flex-wrap">
-            <!-- Customer -->
-            <label for="customer">Customer:</label>
-            <select id="customer" name="customer">
-                <option value="" selected>All Customers</option>
-                {% for val in db %}
-                <option value="{{ val }}" {% if selected_db == val %}selected{% endif %}>{{ val }}</option>
-                {% endfor %}
-            </select>
-
-            <!-- Model -->
-            <label for="model">Model:</label>
-            <select id="model" name="model">
-                <option value="" selected>All Models</option>
-                {% for model in models %}
-                <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
-                {% endfor %}
-            </select>
-
-            <!-- Station -->
-            <label for="station">Station:</label>
-            <select id="station" name="station">
-                <option value="" selected>All Stations</option>
-                {% for station in stations %}
-                <option value="{{ station }}" {% if selected_station == station %}selected{% endif %}>{{ station }}</option>
-                {% endfor %}
-            </select>
-
-            <button type="submit" id="filterSubmit" class="btn btn-primary">Submit</button>
+<body>
+    <div class="container-fluid p-3">
+        <h1 class="text-center mb-4">Activity Monitoring ({{ current_date }})</h1>
+        
+        <!-- Date Filter Dropdown -->
+        <div class="d-flex justify-content-end mb-3 position-relative">
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="arrowDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    Date Filter
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="arrowDropdown">
+                    <li><a class="dropdown-item" href="#" data-target="#dayform">Day</a></li>
+                    <li><a class="dropdown-item" href="#" data-target="#weekform">Week</a></li>
+                    <li><a class="dropdown-item" href="#" data-target="#monthform">Month</a></li>
+                    <li><a class="dropdown-item" href="#" data-target="#rangeform">Range</a></li>
+                </ul>
             </div>
+            
+            <div id="form-container" style="position: absolute; display: none; top: 45px; right: 0;">
+                <!-- Day form -->
+                <form id="dayform" style="display: none;">
+                    <label for="day">Select day:</label>
+                    <input type="date" id="day" name="day" required>
+                    <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+                </form>
 
-            <!-- Download Button -->
-            <div>
-            <a href="/api/download_csv" class="btn btn-success">
-                ⬇️ Download CSV
-            </a>
+                <!-- Week form -->
+                <form id="weekform" style="display: none;">
+                    <label for="week">Select week:</label>
+                    <input type="week" id="week" name="week" required>
+                    <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+                </form>
+
+                <!-- Month form -->
+                <form id="monthform" style="display: none;">
+                    <label for="month">Select month:</label>
+                    <input type="month" id="month" name="month" required>
+                    <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+                </form>
+
+                <!-- Range form -->
+                <form id="rangeform" style="display: none;">
+                    <label>Start Date: 
+                        <input type="date" class="action-start" name="start_date" value="{{ current_date.split(' → ')[0] }}">
+                    </label>
+                    <label>End Date: 
+                        <input type="date" class="action-end" name="end_date" value="{{ current_date.split(' → ')[1] if '→' in current_date else current_date }}">
+                    </label>
+                    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                </form>
+            </div>
+            
+            <div id="spinner" class="spinner-border text-primary ms-2" role="status" style="display: none;">
+                <span class="visually-hidden">Loading...</span>
             </div>
         </div>
-    </form>
-    
-    <!-- Tables -->
-    {% if rows %}
-        <!--tables-->
+
+        <!-- Filter Form -->
+        <form id="filter-form" method="get">
+            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+                <!-- Dropdowns -->
+                <div class="d-flex gap-2 flex-wrap align-items-end">
+                    <div>
+                        <label for="customer" class="form-label mb-1">Customer:</label>
+                        <select id="customer" name="customer" class="form-select">
+                            <option value="" selected>All Customers</option>
+                            {% for val in db %}
+                            <option value="{{ val }}" {% if selected_db == val %}selected{% endif %}>{{ val }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="model" class="form-label mb-1">Model:</label>
+                        <select id="model" name="model" class="form-select">
+                            <option value="" selected>All Models</option>
+                            {% for model in models %}
+                            <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="station" class="form-label mb-1">Station:</label>
+                        <select id="station" name="station" class="form-select">
+                            <option value="" selected>All Stations</option>
+                            {% for station in stations %}
+                            <option value="{{ station }}" {% if selected_station == station %}selected{% endif %}>{{ station }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" id="filterSubmit" class="btn btn-primary">Submit</button>
+                </div>
+
+                <!-- Download Button -->
+                <div>
+                    <a href="/api/download_csv" class="btn btn-success">
+                        ⬇️ Download CSV
+                    </a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Table -->
+        {% if rows %}
         <div class="table-responsive">
-            <table class="table table-striped table-bordered">
-                <thead class="bg-success text-white">
+            <table class="table table-striped table-bordered table-hover">
+                <thead>
                     <tr>
                         <th>Customer</th>
                         <th>Model</th>
@@ -335,9 +371,9 @@ tr:hover {
                     <tr>
                         {% for val in row %}
                             {% set idx = loop.index0 %}
-                            <td data-label="{{ columns[idx] }}" class="{{ 'operator ' if columns[idx] == 'Operator'}}">
+                            <td data-label="{{ columns[idx] }}">
                                 {% if columns[idx] == 'Operator' %}
-                                    <button class="btn btn-info" style="border: none; font-size: 20px; outline: none; background-color: transparent;" onclick="operatorAction('{{ val }}')">{{ val }}</button>
+                                    <button class="btn btn-info btn-sm" style="border: none; outline: none; background-color: transparent; color: #0dcaf0; font-weight: bold;" onclick="operatorAction('{{ val }}')">{{ val }}</button>
                                 {% elif columns[idx] == 'Status' %}
                                     {% if val == 'ON TARGET' %}
                                         <span class="square green" title="ON TARGET"></span>
@@ -356,80 +392,70 @@ tr:hover {
                 </tbody>
             </table>
         </div>
+        {% else %}
+        <div class="alert alert-info text-center mt-4" role="alert">
+            <strong>No records found for the selected date.</strong>
+        </div>
+        {% endif %}
+    </div>
 
-    {% else %}
-        <table>
-            <tbody>
-                <tr>
-                <td>Customer</td>
-                <td>Model</td>
-                <td>Station</td>
-                <td>Operator</td>
-                <td>Output</td>
-                <td>Process Time</td>
-                <td>Target</td>
-                <td>Start Time</td>
-                <td>End Time</td>
-                <td>Status</td>
-            </tr>
-            </tbody>
-        </table>
-        <p><strong>No records found for today.</strong></p>
-    {% endif %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-        const formContainer = document.getElementById("form-container");
-        const dropdownItems = document.querySelectorAll(".dropdown-item");
-        const downloadButton = document.querySelector(".btn-success");
+            const formContainer = document.getElementById("form-container");
+            const dropdownItems = document.querySelectorAll(".dropdown-item");
 
-        // Show the selected form
-        dropdownItems.forEach(item => {
-            item.addEventListener("click", function (e) {
-            e.preventDefault();
-            const targetId = this.getAttribute("data-target");
+            // Show the selected form
+            dropdownItems.forEach(item => {
+                item.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute("data-target");
+                    const forms = formContainer.querySelectorAll("form");
+                    forms.forEach(form => form.style.display = "none");
+                    document.querySelector(targetId).style.display = "flex";
+                    formContainer.style.display = "block";
+                });
+            });
+
+            // Close form container when clicking outside
+            document.addEventListener("click", function(e) {
+                if (!formContainer.contains(e.target) && !document.getElementById("arrowDropdown").contains(e.target)) {
+                    formContainer.style.display = "none";
+                }
+            });
+
+            // Handle form submissions
             const forms = formContainer.querySelectorAll("form");
-            forms.forEach(form => form.style.display = "none");
-            document.querySelector(targetId).style.display = "block";
-            formContainer.style.display = "block";
+            forms.forEach(form => {
+                form.addEventListener("submit", function (e) {
+                    e.preventDefault();
+                    let query = "";
+
+                    if (form.id === "dayform") {
+                        const day = form.querySelector("#day").value;
+                        query = `?date=${encodeURIComponent(day)}`;
+                    } else if (form.id === "weekform") {
+                        const week = form.querySelector("#week").value;
+                        query = `?week=${encodeURIComponent(week)}`;
+                    } else if (form.id === "monthform") {
+                        const month = form.querySelector("#month").value;
+                        query = `?month=${encodeURIComponent(month)}`;
+                    } else if (form.id === "rangeform") {
+                        const start = form.querySelector(".action-start").value;
+                        const end = form.querySelector(".action-end").value;
+                        query = `?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`;
+                    }
+
+                    // Redirect to filtered view
+                    window.location.href = window.location.pathname + query;
+                });
             });
         });
 
-        // Attach submit handlers to each form
-        const forms = formContainer.querySelectorAll("form");
-        forms.forEach(form => {
-            form.addEventListener("submit", function (e) {
-            e.preventDefault();
-
-            let query = "";
-
-            if (form.id === "dayform") {
-                const day = form.querySelector("#day").value;
-                query = `?date=${encodeURIComponent(day)}`;
-            } else if (form.id === "weekform") {
-                const week = form.querySelector("#week").value;
-                query = `?week=${encodeURIComponent(week)}`;
-            } else if (form.id === "monthform") {
-                const month = form.querySelector("#month").value;
-                query = `?month=${encodeURIComponent(month)}`;
-            } else if (form.id === "rangeform") {
-                const start = form.querySelector(".action-start").value;
-                const end = form.querySelector(".action-end").value;
-                query = `?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`;
-            }
-
-            // Trigger CSV download
-            /*const link = document.createElement("a");
-            link.href = `/api/download_csv${query}`;
-            link.download = "production_data.csv";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);*/
-            });
-        });
-        });
-        </script>
-
+        function operatorAction(operator) {
+            console.log("Operator clicked:", operator);
+            // Add your operator action logic here
+        }
+    </script>
 </body>
 </html>
