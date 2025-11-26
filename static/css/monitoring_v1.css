@@ -105,7 +105,7 @@ td span.square.green,
     border-color: #1e7e34 !important;
 } 
 
-/* ...existing code... */
+/* ...existing code...  */
 td span.square.orange,
 .table td span.square.orange {
     background-color: hsl(27, 98%, 54%) !important;  /* orange */
