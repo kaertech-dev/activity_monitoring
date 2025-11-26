@@ -2,6 +2,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <style>
+        /* Use !important and more specific selectors to ensure colors are applied few*/
+        td span.square.green,
+        .table td span.square.green {
+            background-color: #28a745 !important;  /* Bootstrap's success green */
+            border-color: #1e7e34 !important;
+        } 
+
+        /* ...existing code...  */
+        td span.square.orange,
+        .table td span.square.orange {
+            background-color: hsl(27, 98%, 54%) !important;  /* orange */
+            border-color: hsl(27, 98%, 44%) !important;
+        }
+        /* ...existing code... */
+        td span.square.red,
+        .table td span.square.red {
+            background-color: #dc3545 !important;  /* Bootstrap's danger red */
+            border-color: #bd2130 !important;
+        }
+    </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="300">
