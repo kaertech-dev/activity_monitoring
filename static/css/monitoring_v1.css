@@ -98,19 +98,20 @@ span.square {
     border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
-/* Use !important and more specific selectors to ensure colors are applied */
+/* Use !important and more specific selectors to ensure colors are applied few*/
 td span.square.green,
 .table td span.square.green {
     background-color: #28a745 !important;  /* Bootstrap's success green */
     border-color: #1e7e34 !important;
-}
+} 
 
+/* ...existing code...  */
 td span.square.orange,
 .table td span.square.orange {
-    background-color: #fd7e14 !important;  /* Bootstrap's orange */
-    border-color: #dc6502 !important;
+    background-color: hsl(27, 98%, 54%) !important;  /* orange */
+    border-color: hsl(27, 98%, 44%) !important;
 }
-
+/* ...existing code... */
 td span.square.red,
 .table td span.square.red {
     background-color: #dc3545 !important;  /* Bootstrap's danger red */
