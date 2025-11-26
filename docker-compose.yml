@@ -1,5 +1,5 @@
 version: "3.9"
-
+ 
 services:
   monitoring:
     build: .
@@ -8,4 +8,10 @@ services:
     ports:
       - "5000:5000"
     restart: always
-    command: uvicorn monitoring_v1:app --host 0.0.0.0 --port 5000
+    command: uvicorn main:app --host 0.0.0.0 --port 5000
+    networks:
+      - manufacturing_network
+ 
+networks:
+  manufacturing_network:
+    external: true

@@ -19,7 +19,9 @@ class DatabaseConfig:
             'password': os.getenv('DB_PASSWORD', 'labeling'),
             'autocommit': True,
             'use_unicode': True,
-            'charset': 'utf8mb4'
+            'charset': 'utf8mb4',
+            'connection_timeout': 60,
+            'sql_mode': 'TRADITIONAL'
         }
         self.pool_size = int(os.getenv('DB_POOL_SIZE', '15'))
         self.hidden_databases = ['smt', 'onanofflimited']
