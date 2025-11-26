@@ -1,24 +1,30 @@
+/* Fixed CSS with higher specificity to prevent Bootstrap override */
+
 img {
     border: 2px solid black;
     border-radius: 10px;
 }
+
 body {
     font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
     margin: 20px;
     background-color: #f0f2f5;
     color: #333;
 }
+
 h1 {
     text-align: center;
     color: #2c3e50;
     font-family: Arial;
     font-size: clamp(20px, 4vw, 50px);
-    font: bold;
+    font-weight: bold;
 }
-h2{
+
+h2 {
     font-family: Arial;
     font-size: 60px;
 }
+
 .table-container {
     width: 100%;
     overflow-x: auto;
@@ -33,23 +39,25 @@ table {
     box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;
     background-color: #fff;
 }
-td:hover, th:hover{
+
+td:hover, th:hover {
     transform: scale(1.2);
     background-color: #8efd8e !important;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     z-index: 1;
     position: relative;
 } 
+
 th, td {
     padding: 12px 15px;
     text-align: center;
     border-bottom: 1px solid #ffffff;
     font-size: clamp(20px, 2vw, 20px);
     font-family: 'Arial';
-    font: bold;
     font-weight: bolder;
     transition: transform 0.3s ease, background-color 0.3s ease;
 }
+
 /* Alternate row colors */
 tr:nth-child(even) {
     background-color: hsla(120, 84%, 75%, 0.068) !important;
@@ -58,12 +66,14 @@ tr:nth-child(even) {
 tr:nth-child(odd) {
     background-color: #ffffff;
 }
+
 /* More specific selectors that override Bootstrap's styles */
 .table th {
     background-color: #27c033 !important;
     color: white !important;
     font-weight: bold;
 }
+
 .table td {
     background-color: #ffffff !important;
     font-weight: bold;
@@ -79,26 +89,34 @@ tr:nth-child(odd) {
     background-color: #f1f1f1 !important;
 }
 
-.square {
+/* STATUS INDICATOR SQUARES - Enhanced specificity to prevent override */
+span.square {
     height: 35px;
     width: 50px;
-    border: 50%;
+    border-radius: 10px;
     display: inline-block;
+    border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
-.green {
-    background-color: green;
-        border-radius: 10px;
+/* Use !important and more specific selectors to ensure colors are applied */
+td span.square.green,
+.table td span.square.green {
+    background-color: #28a745 !important;  /* Bootstrap's success green */
+    border-color: #1e7e34 !important;
 }
 
-.orange {
-    background-color: orange;
-    border-radius: 10px;
+td span.square.orange,
+.table td span.square.orange {
+    background-color: #fd7e14 !important;  /* Bootstrap's orange */
+    border-color: #dc6502 !important;
 }
-.red {
-    background-color: red;
-    border-radius: 10px;
+
+td span.square.red,
+.table td span.square.red {
+    background-color: #dc3545 !important;  /* Bootstrap's danger red */
+    border-color: #bd2130 !important;
 }
+ 
 th {
     background-color: #27c033;
     color: #fff;
@@ -106,20 +124,23 @@ th {
     letter-spacing: 1px;
     text-transform: uppercase;
 }
+
 tr:hover {
     background-color: #f1f1f1;
 }
+
 .footer {
     text-align: center;
     margin-top: 40px;
     color: #777;
 }
+
 /* Dropdown styles */
 #customer, 
 #model, 
 #station {
-    min-width: 180px;   /* prevents shrinking */
-    max-width: 250px;   /* prevents overly long options from stretching */
+    min-width: 180px;
+    max-width: 250px;
     padding: 6px 10px;
     font-size: 16px;
     border: 2px solid #27c033;
@@ -129,35 +150,40 @@ tr:hover {
     transition: all 0.2s ease-in-out;
 }
 
-/* Optional hover effect */
 #customer:hover, 
 #model:hover, 
 #station:hover {
     border-color: #1a8022;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
-#no-record td{
+
+#no-record td {
     background-color: #27c033 !important;
     color: #fff !important;
     font-weight: bold;
     text-align: center;
 }
+
 @media screen and (max-width: 768px) {
     table, thead, tbody, th, td, tr {
         display: block;
     }
+    
     thead {
         display: none;
     }
+    
     th {
         display: none;
     }
+    
     td {
         position: relative;
         padding-left: 50%;
         text-align: left;
         font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
     }
+    
     td::before {
         content: attr(data-label);
         position: absolute;

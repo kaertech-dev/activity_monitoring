@@ -17,7 +17,7 @@ from config import db_config
 logger = logging.getLogger(__name__)
 
 # UTC offset constant: 7 hours and 15 minutes
-UTC_OFFSET_HOURS = 7.25
+UTC_OFFSET_HOURS = 0
 
 def process_table_data(
     database: str, 
@@ -232,7 +232,7 @@ def process_table_data(
                     actual_end_time = last_record_time
                     duration_hours = 0
 
-                # Get target time
+                # Get target times
                 target_time = ProductionDataProcessor.get_target_time(cursor, database, model, station)
 
                 # Determine status based on cycle time vs target
