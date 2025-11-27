@@ -7,52 +7,97 @@
     <title>Activity Monitoring</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+img {
+    border: 2px solid black;
+    border-radius: 10px;
+}
+
 body {
     font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    margin: 20px;
     background-color: #f0f2f5;
     color: #333;
 }
 
 h1 {
+    text-align: center;
     color: #2c3e50;
     font-family: Arial;
+    font-size: clamp(20px, 4vw, 50px);
     font-weight: bold;
-    font-size: clamp(1.5rem, 4vw, 3rem);
 }
 
-/* Table Styles */
-.table {
+h2 {
+    font-family: Arial;
+    font-size: 60px;
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 25px auto;
+    min-width: 800px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;
     background-color: #fff;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
+td:hover, th:hover {
+    transform: scale(1.2);
+    background-color: #8efd8e !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+    position: relative;
+} 
+
+th, td {
+    padding: 12px 15px;
+    text-align: center;
+    border-bottom: 1px solid #ffffff;
+    font-size: clamp(20px, 2vw, 20px);
+    font-family: 'Arial';
+    font-weight: bolder;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+/* Alternate row colors */
+tr:nth-child(even) {
+    background-color: hsla(120, 84%, 75%, 0.068) !important;
+}
+
+tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+/* More specific selectors that override Bootstrap's styles */
 .table th {
     background-color: #27c033 !important;
     color: white !important;
     font-weight: bold;
-    font-size: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 12px 15px;
 }
 
 .table td {
-    font-weight: 600;
+    background-color: #ffffff !important;
+    font-weight: bold;
     color: #333;
-    padding: 12px 15px;
-    font-size: 1rem;
 }
 
-.table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(39, 192, 51, 0.05) !important;
+.table tr:nth-child(even) td {
+    background-color: hsla(120, 51%, 75%, 0.3) !important;
 }
 
-.table-hover tbody tr:hover {
+.table-hover tbody tr:hover td,
+.table-hover tbody tr:hover th {
     background-color: #f1f1f1 !important;
 }
 
-/* Status Indicator Squares */
-.square {
+/* STATUS INDICATOR SQUARES */
+span.square {
     height: 35px;
     width: 50px;
     border-radius: 10px;
@@ -60,26 +105,51 @@ h1 {
     border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
-.square.green {
+td span.square.green,
+.table td span.square.green {
     background-color: #28a745 !important;
     border-color: #1e7e34 !important;
 } 
 
-.square.orange {
+td span.square.orange,
+.table td span.square.orange {
     background-color: hsl(27, 98%, 54%) !important;
     border-color: hsl(27, 98%, 44%) !important;
 }
 
-.square.red {
+td span.square.red,
+.table td span.square.red {
     background-color: #dc3545 !important;
     border-color: #bd2130 !important;
 }
+ 
+th {
+    background-color: #27c033;
+    color: #fff;
+    font-size: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    color: #777;
+}
 
 /* Dropdown styles */
-select {
-    min-width: 140px;
+#customer, 
+#model, 
+#station,
+#active_filter {
+    min-width: 120px;
+    max-width: 250px;
     padding: 6px 10px;
-    font-size: 0.95rem;
+    font-size: 16px;
     border: 2px solid #27c033;
     border-radius: 6px;
     background-color: #fff;
@@ -87,173 +157,69 @@ select {
     transition: all 0.2s ease-in-out;
 }
 
-select:hover {
+#customer:hover, 
+#model:hover, 
+#station:hover,
+#active_filter:hover {
     border-color: #1a8022;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-/* Form container */
-#form-container {
-    background: white;
-    padding: 1rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    z-index: 1050;
-}
-
-#form-container form {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-#form-container label {
+#no-record td {
+    background-color: #27c033 !important;
+    color: #fff !important;
     font-weight: bold;
-    margin: 0;
+    text-align: center;
 }
 
-#form-container input {
-    padding: 4px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-#form-container button {
-    padding: 4px 12px;
-    border-radius: 4px;
-}
-
-/* Mobile Responsive Styles */
+/* Mobile Responsive */
 @media screen and (max-width: 768px) {
-    h1 {
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-    }
-    
-    /* Make filter form stack vertically */
-    #filter-form .d-flex {
-        flex-direction: column;
-        align-items: stretch !important;
-    }
-    
-    #filter-form .gap-2 {
-        width: 100%;
-    }
-    
-    #filter-form label {
+    table, thead, tbody, th, td, tr {
         display: block;
-        margin-bottom: 0.25rem;
-        font-weight: 600;
     }
     
-    #filter-form select {
-        width: 100%;
-        min-width: 100%;
-        margin-bottom: 0.75rem;
-    }
-    
-    #filterSubmit,
-    .btn-success {
-        width: 100%;
-        margin-top: 0.5rem;
-    }
-    
-    /* Form container mobile positioning */
-    #form-container {
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        right: auto !important;
-        width: 90% !important;
-        max-width: 400px;
-    }
-    
-    /* Dropdown button positioning */
-    .dropdown {
-        position: static;
-    }
-    
-    /* Stack table cells on mobile */
-    .table-responsive {
-        border: none;
-    }
-    
-    .table thead {
+    thead {
         display: none;
     }
     
-    .table tbody tr {
-        display: block;
-        margin-bottom: 1rem;
-        border: 2px solid #27c033;
-        border-radius: 8px;
-        overflow: hidden;
+    th {
+        display: none;
     }
     
-    .table tbody td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 15px;
-        border: none;
-        border-bottom: 1px solid #e0e0e0;
-        text-align: right !important;
-    }
-    
-    .table tbody td:last-child {
-        border-bottom: none;
-    }
-    
-    .table tbody td::before {
-        content: attr(data-label);
-        font-weight: bold;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-        color: #27c033;
+    td {
+        position: relative;
+        padding-left: 50%;
         text-align: left;
-        flex: 0 0 40%;
+        font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
     }
     
-    .table tbody td .btn-info {
-        font-size: 1rem !important;
+    td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 15px;
+        font-weight: bold;
+        color: #333;
     }
-}
 
-@media screen and (max-width: 480px) {
-    .container-fluid {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-    
-    h1 {
-        font-size: 1.25rem;
-    }
-    
-    .table tbody td {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
-    }
-    
-    .table tbody td::before {
-        flex: none;
+    /* Disable hover effects on mobile */
+    td:hover, th:hover {
+        transform: none;
+        background-color: inherit !important;
     }
 }
     </style>
 </head>
 
-<body>
-    <div class="container-fluid p-3">
-        <h1 class="text-center mb-4">Activity Monitoring ({{ current_date }})</h1>
-        
-        <!-- Date Filter Dropdown -->
-        <div class="d-flex justify-content-end mb-3 position-relative">
+<body class="p-2">
+    <h1 class="text-center">Activity Monitoring ({{ current_date }})</h1>
+    
+    <!-- Date Period Dropdown -->
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2 justify-content-end position-relative" style="height: auto">
             <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="arrowDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    Date Filter
                 </button>
+                <!--dropdown forms-->
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="arrowDropdown">
                     <li><a class="dropdown-item" href="#" data-target="#dayform">Day</a></li>
                     <li><a class="dropdown-item" href="#" data-target="#weekform">Week</a></li>
@@ -261,82 +227,90 @@ select:hover {
                     <li><a class="dropdown-item" href="#" data-target="#rangeform">Range</a></li>
                 </ul>
             </div>
-            
-            <div id="form-container" style="position: absolute; display: none; top: 45px; right: 0;">
-                <!-- Day form -->
-                <form id="dayform" style="display: none;">
-                    <label for="day">Select day:</label>
-                    <input type="date" id="day" name="day" required>
-                    <button type="submit" class="btn btn-sm btn-primary">Submit</button>
-                </form>
-
-                <!-- Week form -->
+            <div id="form-container" style="position: absolute; width: max-content; display: none; background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 0.5rem; top: 45px; right: 160px; z-index: 1050;">
+                <!--week form-->
                 <form id="weekform" style="display: none;">
                     <label for="week">Select week:</label>
                     <input type="week" id="week" name="week" required>
-                    <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+                    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
                 </form>
 
-                <!-- Month form -->
+                <!--month form-->
                 <form id="monthform" style="display: none;">
                     <label for="month">Select month:</label>
                     <input type="month" id="month" name="month" required>
-                    <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+                    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
                 </form>
 
-                <!-- Range form -->
-                <form id="rangeform" style="display: none;">
+                <!--day form-->
+                <form id="dayform" style="display: none;">
+                    <label for="day" style="font-weight: bold;">Select day:</label>
+                    <input type="date" id="day" name="day" required>
+                    <button type="submit" style="border-style: solid; border-width: 1px; border-color: #ccc;">Submit</button>
+                </form>
+
+                <!--range date-->
+                <form id="rangeform">
                     <label>Start Date: 
                         <input type="date" class="action-start" name="start_date" value="{{ current_date.split(' → ')[0] }}">
                     </label>
                     <label>End Date: 
                         <input type="date" class="action-end" name="end_date" value="{{ current_date.split(' → ')[1] if '→' in current_date else current_date }}">
                     </label>
-                    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                    <button type="submit" class="action-btn filter-btn" style="border-style: solid; border-width: 1px; border-color: #ccc;">Filter</button>
                 </form>
             </div>
-            
-            <div id="spinner" class="spinner-border text-primary ms-2" role="status" style="display: none;">
-                <span class="visually-hidden">Loading...</span>
+            <div id="spinner" class="spinner-border text-primary" role="status" style="display: none;">
+                <span class="visually-hidden">loading...</span>
             </div>
         </div>
 
-        <!-- Filter Form -->
         <form id="filter-form" method="get">
-            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+            <div class="d-flex justify-content-between align-items-center mb-3" style="flex-wrap: wrap; gap: 1rem;">
                 <!-- Dropdowns -->
-                <div class="d-flex gap-2 flex-wrap align-items-end">
-                    <div>
-                        <label for="customer" class="form-label mb-1">Customer:</label>
-                        <select id="customer" name="customer" class="form-select">
-                            <option value="" selected>All Customers</option>
-                            {% for val in db %}
-                            <option value="{{ val }}" {% if selected_db == val %}selected{% endif %}>{{ val }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <!-- Customer -->
+                    <label for="customer">Customer:</label>
+                    <select id="customer" name="customer">
+                        <option value="" selected>All Customers</option>
+                        {% for val in db %}
+                        <option value="{{ val }}" {% if selected_db == val %}selected{% endif %}>{{ val }}</option>
+                        {% endfor %}
+                    </select>
 
-                    <div>
-                        <label for="model" class="form-label mb-1">Model:</label>
-                        <select id="model" name="model" class="form-select">
-                            <option value="" selected>All Models</option>
-                            {% for model in models %}
-                            <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                    <!-- Model -->
+                    <label for="model">Model:</label>
+                    <select id="model" name="model">
+                        <option value="" selected>All Models</option>
+                        {% for model in models %}
+                        <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
+                        {% endfor %}
+                    </select>
 
-                    <div>
-                        <label for="station" class="form-label mb-1">Station:</label>
-                        <select id="station" name="station" class="form-select">
-                            <option value="" selected>All Stations</option>
-                            {% for station in stations %}
-                            <option value="{{ station }}" {% if selected_station == station %}selected{% endif %}>{{ station }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                    <!-- Station -->
+                    <label for="station">Station:</label>
+                    <select id="station" name="station">
+                        <option value="" selected>All Stations</option>
+                        {% for station in stations %}
+                        <option value="{{ station }}" {% if selected_station == station %}selected{% endif %}>{{ station }}</option>
+                        {% endfor %}
+                    </select>
 
                     <button type="submit" id="filterSubmit" class="btn btn-primary">Submit</button>
+                    
+                    <!-- NEW: Active Filter Dropdown Arrow Button -->
+                    <div class="dropdown" style="display: inline-block;">
+                        <button class="btn btn-secondary dropdown-toggle" type="button" id="activeFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span id="activeFilterLabel">{{ 'Active Only' if active_filter == 'active' else 'All Operators' }}</span>
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="activeFilterDropdown">
+                            <li><a class="dropdown-item" href="#" data-filter="all">All Operators</a></li>
+                            <li><a class="dropdown-item" href="#" data-filter="active">Active Only</a></li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Hidden input to store active filter value -->
+                    <input type="hidden" id="active_filter" name="active_filter" value="{{ active_filter if active_filter else 'all' }}">
                 </div>
 
                 <!-- Download Button -->
@@ -346,13 +320,21 @@ select:hover {
                     </a>
                 </div>
             </div>
+            
+            <!-- Active filter info -->
+            {% if active_filter == "active" and active_operators_count is not none %}
+            <div class="alert alert-info" role="alert">
+                Showing <strong>{{ active_operators_count }}</strong> active operators (with break_logs entries)
+            </div>
+            {% endif %}
         </form>
-        
-        <!-- Table -->
-        {% if rows %}
+    </div>
+    
+    <!-- Tables -->
+    {% if rows %}
         <div class="table-responsive">
-            <table class="table table-striped table-bordered table-hover">
-                <thead>
+            <table class="table table-striped table-bordered">
+                <thead class="bg-success text-white">
                     <tr>
                         <th>Customer</th>
                         <th>Model</th>
@@ -371,9 +353,9 @@ select:hover {
                     <tr>
                         {% for val in row %}
                             {% set idx = loop.index0 %}
-                            <td data-label="{{ columns[idx] }}">
+                            <td data-label="{{ columns[idx] }}" class="{{ 'operator ' if columns[idx] == 'Operator'}}">
                                 {% if columns[idx] == 'Operator' %}
-                                    <button class="btn btn-info btn-sm" style="border: none; outline: none; background-color: transparent; color: #0dcaf0; font-weight: bold;" onclick="operatorAction('{{ val }}')">{{ val }}</button>
+                                    <button class="btn btn-info" style="border: none; font-size: 20px; outline: none; background-color: transparent;" onclick="operatorAction('{{ val }}')">{{ val }}</button>
                                 {% elif columns[idx] == 'Status' %}
                                     {% if val == 'ON TARGET' %}
                                         <span class="square green" title="ON TARGET"></span>
@@ -392,13 +374,26 @@ select:hover {
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div class="alert alert-info text-center mt-4" role="alert">
-            <strong>No records found for the selected date.</strong>
-        </div>
-        {% endif %}
-    </div>
-
+    {% else %}
+        <table>
+            <tbody>
+                <tr>
+                    <td>Customer</td>
+                    <td>Model</td>
+                    <td>Station</td>
+                    <td>Operator</td>
+                    <td>Output</td>
+                    <td>Process Time</td>
+                    <td>Target</td>
+                    <td>Start Time</td>
+                    <td>End Time</td>
+                    <td>Status</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>No records found for the selected filters.</strong></p>
+    {% endif %}
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
@@ -412,7 +407,7 @@ select:hover {
                     const targetId = this.getAttribute("data-target");
                     const forms = formContainer.querySelectorAll("form");
                     forms.forEach(form => form.style.display = "none");
-                    document.querySelector(targetId).style.display = "flex";
+                    document.querySelector(targetId).style.display = "block";
                     formContainer.style.display = "block";
                 });
             });
@@ -424,11 +419,12 @@ select:hover {
                 }
             });
 
-            // Handle form submissions
+            // Attach submit handlers to each form
             const forms = formContainer.querySelectorAll("form");
             forms.forEach(form => {
                 form.addEventListener("submit", function (e) {
                     e.preventDefault();
+
                     let query = "";
 
                     if (form.id === "dayform") {
@@ -453,9 +449,27 @@ select:hover {
         });
 
         function operatorAction(operator) {
-            console.log("Operator clicked:", operator);
-            // Add your operator action logic here
+            window.location.href = `/operator/${encodeURIComponent(operator)}`;
         }
+
+        // Handle active filter dropdown selection
+        document.querySelectorAll('#activeFilterDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filterValue = this.getAttribute('data-filter');
+                const filterInput = document.getElementById('active_filter');
+                const filterLabel = document.getElementById('activeFilterLabel');
+                
+                // Update hidden input value
+                filterInput.value = filterValue;
+                
+                // Update button label
+                filterLabel.textContent = filterValue === 'active' ? 'Active Only' : 'All Operators';
+                
+                // Submit the form
+                document.getElementById('filter-form').submit();
+            });
+        });
     </script>
 </body>
 </html>

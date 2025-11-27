@@ -1,5 +1,5 @@
-"""Business logic and data processing services - Optimized version"""
-from typing import Optional, List, Dict, Tuple
+"""Business logic and data processing services - Optimized version with Active Filter"""
+from typing import Optional, List, Dict, Tuple, Set
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
@@ -18,6 +18,48 @@ logger = logging.getLogger(__name__)
 
 # UTC offset constant: 7 hours and 15 minutes
 UTC_OFFSET_HOURS = 0
+
+def get_active_operators(start_date: Optional[str] = None, end_date: Optional[str] = None) -> Set[str]:
+    """
+    Get set of operators who have entries in break_logs for the given date range
+    
+    Args:
+        start_date: Start date string in 'YYYY-MM-DD' format
+        end_date: End date string in 'YYYY-MM-DD' format
+    
+    Returns:
+        Set of operator names who are active (have break_logs entries)
+    """
+    try:
+        with get_db_connection() as cursor:
+            # Determine date range
+            if start_date and end_date:
+                start_dt, end_dt = get_production_date_range(start_date, end_date)
+            else:
+                start_dt, end_dt = get_production_start_time()
+            
+            # Adjust for UTC offset
+            adjusted_start_dt = start_dt - timedelta(hours=UTC_OFFSET_HOURS)
+            adjusted_end_dt = end_dt - timedelta(hours=UTC_OFFSET_HOURS)
+            
+            # Query to get unique operators from break_logs
+            query = """
+                SELECT DISTINCT operator_en
+                FROM projectsdb.break_logs
+                WHERE timestamp BETWEEN %s AND %s
+            """
+            
+            cursor.execute(query, (adjusted_start_dt, adjusted_end_dt))
+            results = cursor.fetchall()
+            
+            active_operators = {row[0] for row in results if row[0]}
+            logger.info(f"Found {len(active_operators)} active operators with break_logs")
+            
+            return active_operators
+            
+    except Exception as e:
+        logger.error(f"Error fetching active operators: {e}")
+        return set()
 
 def process_table_data(
     database: str, 
@@ -383,8 +425,12 @@ def fetch_production_data(
     
     return result
 
-def apply_filters(records: List[ProductionRecord], filters: Dict[str, Optional[str]]) -> List[ProductionRecord]:
-    """Apply filters to production records"""
+def apply_filters(
+    records: List[ProductionRecord], 
+    filters: Dict[str, Optional[str]],
+    active_operators: Optional[Set[str]] = None
+) -> List[ProductionRecord]:
+    """Apply filters to production records including active filter"""
     filtered = records
     
     if filters.get("customer"):
@@ -393,6 +439,10 @@ def apply_filters(records: List[ProductionRecord], filters: Dict[str, Optional[s
         filtered = [r for r in filtered if r.model.lower() == filters["model"].lower()]
     if filters.get("station"):
         filtered = [r for r in filtered if r.station.lower() == filters["station"].lower()]
+    
+    # Apply active filter if provided
+    if active_operators is not None:
+        filtered = [r for r in filtered if r.operator in active_operators]
     
     return filtered
 
