@@ -1,5 +1,5 @@
 # activity_monitoring/api_routes.py
-"""API route handlers"""
+"""API route handlers with Active Filter support"""
 from fastapi import APIRouter, Query, HTTPException, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Optional, Dict
@@ -9,7 +9,7 @@ import csv
 import io
 import re
 
-from services import fetch_production_data, apply_filters, get_operator_statistics
+from services import fetch_production_data, apply_filters, get_operator_statistics, get_active_operators
 from utils import get_production_start_time
 from database import get_db_connection
 from config import db_config
@@ -21,9 +21,10 @@ router = APIRouter()
 def get_filters(
     customer: Optional[str] = Query(None),
     model: Optional[str] = Query(None),
-    station: Optional[str] = Query(None)
+    station: Optional[str] = Query(None),
+    active_filter: Optional[str] = Query("all")
 ):
-    return {"customer": customer, "model": model, "station": station}
+    return {"customer": customer, "model": model, "station": station, "active_filter": active_filter}
 
 @router.get("/api/operator_today", response_class=JSONResponse)
 async def api_operator_today(
@@ -31,18 +32,30 @@ async def api_operator_today(
     end_date: Optional[str] = Query(None),
     filters: Dict[str, Optional[str]] = Depends(get_filters)
 ):
-    """API endpoint for today's operator data with 7 AM start"""
+    """API endpoint for today's operator data with 7 AM start and active filter"""
     try:
         records, date_str, _, _, _ = fetch_production_data(start_date, end_date)
-        filtered_records = apply_filters(records, filters)
         
-        return {
+        # Get active operators if filter is set to "active"
+        active_operators = None
+        if filters.get("active_filter") == "active":
+            active_operators = get_active_operators(start_date, end_date)
+            logger.info(f"Active filter enabled in API: {len(active_operators)} active operators")
+        
+        filtered_records = apply_filters(records, filters, active_operators)
+        
+        response_data = {
             "date": date_str,
             "count": len(filtered_records),
             "records": [record.to_dict() for record in filtered_records],
             "filters_applied": {k: v for k, v in filters.items() if v},
             "production_day_info": "Production day starts at 7:00 AM"
         }
+        
+        if active_operators is not None:
+            response_data["active_operators_count"] = len(active_operators)
+        
+        return response_data
     except Exception as e:
         logger.error(f"API operator today error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch operator data")
@@ -80,10 +93,20 @@ async def api_operator_outputs(operator_name: str):
         raise HTTPException(status_code=500, detail="Failed to fetch operator outputs")
 
 @router.get("/api/operator_summary", response_class=JSONResponse)
-async def api_operator_summary():
-    """Get comprehensive operator summary statistics with 7 AM start"""
+async def api_operator_summary(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    active_filter: Optional[str] = Query("all")
+):
+    """Get comprehensive operator summary statistics with 7 AM start and active filter"""
     try:
-        records, _, _, _, _ = fetch_production_data()
+        records, _, _, _, _ = fetch_production_data(start_date, end_date)
+        
+        # Get active operators if filter is enabled
+        active_operators = None
+        if active_filter == "active":
+            active_operators = get_active_operators(start_date, end_date)
+            records = [r for r in records if r.operator in active_operators]
         
         summary = {}
         for record in records:
@@ -119,12 +142,18 @@ async def api_operator_summary():
             del operator_data["customers_served"]
             del operator_data["cycle_times"]
         
-        return {
+        response_data = {
             "summary": summary, 
             "total_operators": len(summary),
             "generated_at": datetime.now().isoformat(),
-            "production_day_info": "Production day starts at 7:00 AM"
+            "production_day_info": "Production day starts at 7:00 AM",
+            "active_filter": active_filter
         }
+        
+        if active_operators is not None:
+            response_data["active_operators_count"] = len(active_operators)
+        
+        return response_data
     except Exception as e:
         logger.error(f"Operator summary error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate operator summary")
@@ -192,9 +221,10 @@ async def download_csv(
     week: str = None,
     month: str = None,
     start_date: str = None,
-    end_date: str = None
+    end_date: str = None,
+    active_filter: str = Query("all")
 ):
-    """Download production data as CSV with 7 AM production day logic"""
+    """Download production data as CSV with 7 AM production day logic and active filter"""
     try:
         # --- Validation helpers ---
         def validate_date(date_str: str) -> bool:
@@ -235,13 +265,18 @@ async def download_csv(
 
         # --- Fetch records ---
         records, _, _, _, _ = fetch_production_data(start_date=start_date, end_date=end_date)
+        
+        # Apply active filter if enabled
+        if active_filter == "active":
+            active_operators = get_active_operators(start_date, end_date)
+            records = [r for r in records if r.operator in active_operators]
 
         # --- Prepare CSV ---
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)',
                          'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers'])
-        writer.writerow(['# Production Day: Starts at 7:00 AM each day'])
+        writer.writerow([f'# Production Day: Starts at 7:00 AM each day | Filter: {active_filter}'])
 
         for record in records:
             row = [
@@ -262,7 +297,7 @@ async def download_csv(
         output.seek(0)
 
         headers = {
-            'Content-Disposition': f'attachment; filename="production_data.csv"'
+            'Content-Disposition': f'attachment; filename="production_data_{active_filter}.csv"'
         }
 
         return StreamingResponse(
@@ -281,10 +316,16 @@ async def get_production_statistics(
     end_date: Optional[str] = Query(None),
     filters: Dict[str, Optional[str]] = Depends(get_filters)
 ):
-    """Get comprehensive production statistics with 7 AM start logic"""
+    """Get comprehensive production statistics with 7 AM start logic and active filter"""
     try:
         records, date_str, _, _, _ = fetch_production_data(start_date, end_date)
-        filtered_records = apply_filters(records, filters)
+        
+        # Get active operators if filter is enabled
+        active_operators = None
+        if filters.get("active_filter") == "active":
+            active_operators = get_active_operators(start_date, end_date)
+        
+        filtered_records = apply_filters(records, filters, active_operators)
         
         if not filtered_records:
             return {"message": "No data found for the specified filters"}
@@ -310,7 +351,7 @@ async def get_production_statistics(
         
         top_operators = sorted(operator_outputs.items(), key=lambda x: x[1], reverse=True)[:5]
         
-        return {
+        response_data = {
             "summary": {
                 "total_output": total_output,
                 "total_operators": total_operators,
@@ -324,6 +365,11 @@ async def get_production_statistics(
             "generated_at": datetime.now().isoformat(),
             "production_day_info": "Production day starts at 7:00 AM"
         }
+        
+        if active_operators is not None:
+            response_data["active_operators_count"] = len(active_operators)
+        
+        return response_data
     except Exception as e:
         logger.error(f"Statistics API error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate statistics")
