@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import logging
 import re
 
-from services import fetch_production_data, apply_filters, get_operator_statistics, get_active_operators
+from services import fetch_production_data, apply_filters, get_operator_statistics, get_active_operators, get_operator_name
 from utils import get_production_start_time
 import os
 
@@ -123,12 +123,29 @@ async def show_operator_en_today(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.get("/operator/{operator_name}", response_class=HTMLResponse)
-async def show_operator_activity(request: Request, operator_name: str):
-    """Show specific operator activity"""
+@router.get("/operator/{operator_identifier}", response_class=HTMLResponse)
+async def show_operator_activity(request: Request, operator_identifier: str):
+    """
+    Show specific operator activity.
+    operator_identifier can be either operator name or operator_en code.
+    """
     try:
         records, today_str, _, _, _ = fetch_production_data()
-        stats = get_operator_statistics(records, operator_name)
+        
+        # Try to find records by name first, then fall back to code
+        stats = get_operator_statistics(records, operator_identifier)
+        
+        # If no records found and identifier looks like a code (e.g., KE0447),
+        # try to get the name and search again
+        if not stats['records'] and re.match(r'^[A-Z]{2}\d{4}$', operator_identifier):
+            operator_name = get_operator_name(operator_identifier)
+            if operator_name != operator_identifier:
+                stats = get_operator_statistics(records, operator_name)
+        
+        # Determine display name
+        display_name = operator_identifier
+        if stats['records']:
+            display_name = stats['records'][0].operator
         
         columns = ['Customer', 'Model', 'Station', 'Operator', 'Output',
                    'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
@@ -139,7 +156,7 @@ async def show_operator_activity(request: Request, operator_name: str):
             "rows": rows,
             "columns": columns,
             "current_date": today_str,
-            "operator_name": operator_name,
+            "operator_name": display_name,
             "serials": stats['serials'],
             "operator_stats": {
                 "total_output": stats['total_output'],

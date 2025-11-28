@@ -1,5 +1,5 @@
 # activity_monitoring/api_routes.py
-"""API route handlers - Refactored"""
+"""API route handlers - Updated for employee names"""
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Optional
@@ -81,20 +81,21 @@ async def download_csv(
         
         if active_filter == "active":
             active_operators = get_active_operators(start_date, end_date)
-            records = [r for r in records if r.operator in active_operators]
+            records = [r for r in records if r.operator_code in active_operators]
 
         # Generate CSV
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['Customer', 'Model', 'Station', 'Operator', 'Output', 'Cycle Time(s)',
-                         'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers'])
+        writer.writerow(['Customer', 'Model', 'Station', 'Operator Name', 'Operator Code', 'Output', 
+                         'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers'])
 
         for record in records:
             writer.writerow([
                 record.customer.upper(),
                 record.model.upper(),
                 record.station.upper(),
-                record.operator,
+                record.operator,  # Employee name
+                record.operator_code,  # Operator code
                 record.output,
                 f"{record.cycle_time:.2f}" if record.cycle_time != 0 else '-',
                 record.target_time,
@@ -145,6 +146,7 @@ async def get_production_statistics(
         operator_outputs = {}
         for record in filtered_records:
             status_counts[record.status] = status_counts.get(record.status, 0) + 1
+            # Use employee name for statistics
             operator_outputs[record.operator] = operator_outputs.get(record.operator, 0) + record.output
         
         return {
