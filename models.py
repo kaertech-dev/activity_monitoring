@@ -9,7 +9,8 @@ class ProductionRecord:
     customer: str
     model: str
     station: str
-    operator: str
+    operator: str  # This will now be the employee name
+    operator_code: str  # This stores the original operator_en code (e.g., 'KE0447')
     output: int
     target_time: Optional[float]
     cycle_time: float
@@ -25,12 +26,13 @@ class ProductionRecord:
             'Customer': self.customer.upper(),
             'Model': self.model.upper(),
             'Station': self.station.upper(),
-            'Operator': self.operator,
+            'Operator': self.operator,  # Now displays employee name
             'Output': self.output,
             'Target(s)': self.target_time,
             'Cycle Time(s)': f"{self.cycle_time:.2f}" if self.cycle_time != 0 else '-',
             'Start Time': self.start_time.strftime('%H:%M:%S') if self.start_time else None,
             'End time': self.end_time.strftime('%H:%M:%S') if self.end_time else None,
             'Status': self.status,
-            'serial_num': self.serial_nums
+            'serial_num': self.serial_nums,
+            'operator_code': self.operator_code  # Include code for reference if needed
         }

@@ -1,4 +1,4 @@
-"""Business logic and data processing services - Refactored"""
+"""Business logic and data processing services - Refactored with Employee Names"""
 from typing import Optional, List, Dict, Tuple, Set
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,8 +16,69 @@ logger = logging.getLogger(__name__)
 
 UTC_OFFSET_HOURS = 0
 
+
+def get_operator_name(cursor, operator_en: str) -> str:
+    """
+    Get employee name from operators.main table
+    
+    Args:
+        cursor: Database cursor
+        operator_en: Operator code (e.g., 'KE0447')
+    
+    Returns:
+        Employee name or operator code if not found
+    """
+    try:
+        cursor.execute("""
+            SELECT employee_name 
+            FROM operators.main 
+            WHERE operator_en = %s
+            LIMIT 1
+        """, (operator_en,))
+        result = cursor.fetchone()
+        return result[0] if result else operator_en
+    except Exception as e:
+        logger.warning(f"Could not fetch name for {operator_en}: {e}")
+        return operator_en
+
+
+def get_operator_names_batch(cursor, operator_codes: List[str]) -> Dict[str, str]:
+    """
+    Get employee names for multiple operators in one query
+    
+    Args:
+        cursor: Database cursor
+        operator_codes: List of operator codes
+    
+    Returns:
+        Dictionary mapping operator_en to employee_name
+    """
+    if not operator_codes:
+        return {}
+    
+    try:
+        placeholders = ','.join(['%s'] * len(operator_codes))
+        cursor.execute(f"""
+            SELECT operator_en, employee_name 
+            FROM operators.main 
+            WHERE operator_en IN ({placeholders})
+        """, tuple(operator_codes))
+        
+        # Create mapping dict, use operator_en as fallback if name not found
+        name_map = {code: code for code in operator_codes}
+        for operator_en, employee_name in cursor.fetchall():
+            if employee_name:
+                name_map[operator_en] = employee_name
+        
+        return name_map
+    except Exception as e:
+        logger.error(f"Error fetching operator names: {e}")
+        # Return dict with codes as fallback
+        return {code: code for code in operator_codes}
+
+
 def get_active_operators(start_date: Optional[str] = None, end_date: Optional[str] = None) -> Set[str]:
-    """Get operators who have break_logs entries"""
+    """Get operators who have break_logs entries (returns operator codes)"""
     try:
         with get_db_connection() as cursor:
             if start_date and end_date:
@@ -88,13 +149,16 @@ def process_table_data(
             if not rows:
                 return []
 
+            # Batch fetch operator names
+            operator_codes = [row[0] for row in rows]
+            operator_names = get_operator_names_batch(cursor, operator_codes)
+
             results = []
             adjusted_start = start_dt - timedelta(hours=UTC_OFFSET_HOURS)
             adjusted_end = end_dt - timedelta(hours=UTC_OFFSET_HOURS)
             
             # Batch fetch break logs
-            operator_list = [row[0] for row in rows]
-            placeholders = ','.join(['%s'] * len(operator_list))
+            placeholders = ','.join(['%s'] * len(operator_codes))
             
             cursor.execute(f"""
                 SELECT operator_en, timestamp, action_type
@@ -102,7 +166,7 @@ def process_table_data(
                 WHERE operator_en IN ({placeholders})
                 AND timestamp BETWEEN %s AND %s
                 ORDER BY operator_en, timestamp ASC
-            """, tuple(operator_list) + (adjusted_start, adjusted_end))
+            """, tuple(operator_codes) + (adjusted_start, adjusted_end))
             
             # Group logs by operator
             logs_by_operator = {}
@@ -134,11 +198,15 @@ def process_table_data(
                 target_time = ProductionDataProcessor.get_target_time(cursor, database, model, station)
                 status = determine_status(cycle_time, target_time)
 
+                # Get employee name
+                employee_name = operator_names.get(operator_en, operator_en)
+
                 results.append(ProductionRecord(
                     customer=database,
                     model=model,
                     station=station,
-                    operator=operator_en,
+                    operator=employee_name,  # Use employee name instead of code
+                    operator_code=operator_en,  # Keep code for reference
                     output=output,
                     target_time=target_time,
                     cycle_time=cycle_time,
@@ -324,14 +392,16 @@ def apply_filters(
     if filters.get("station"):
         filtered = [r for r in filtered if r.station.lower() == filters["station"].lower()]
     if active_operators is not None:
-        filtered = [r for r in filtered if r.operator in active_operators]
+        # Filter by operator_code since active_operators contains codes
+        filtered = [r for r in filtered if r.operator_code in active_operators]
     
     return filtered
 
 
 def get_operator_statistics(records: List[ProductionRecord], operator_name: str) -> Dict:
-    """Calculate statistics for a specific operator"""
-    filtered = [r for r in records if r.operator == operator_name]
+    """Calculate statistics for a specific operator (by name or code)"""
+    # Try to match by name first, then by code
+    filtered = [r for r in records if r.operator == operator_name or r.operator_code == operator_name]
     
     all_serials = []
     total_output = 0
@@ -347,7 +417,7 @@ def get_operator_statistics(records: List[ProductionRecord], operator_name: str)
         "serials": all_serials,
         "total_output": total_output,
         "total_duration_hours": round(total_duration, 2),
-        "mode_cycle_time": None,  # Simplified - can add back if needed
+        "mode_cycle_time": None,
         "stations_count": len(set(f"{r.customer}-{r.model}-{r.station}" for r in filtered)),
         "records": filtered
     }
