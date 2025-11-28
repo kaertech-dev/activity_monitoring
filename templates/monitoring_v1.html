@@ -140,7 +140,10 @@ tr:hover {
     margin-top: 40px;
     color: #777;
 }
-
+#form-container {
+    z-index: 1060 !important; /* Higher than Bootstrap dropdown */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
 /* Dropdown styles */
 #customer, 
 #model, 
@@ -250,7 +253,7 @@ tr:hover {
                 </form>
 
                 <!--range date-->
-                <form id="rangeform">
+                <form id="rangeform" style="display: none;">
                     <label>Start Date: 
                         <input type="date" class="action-start" name="start_date" value="{{ current_date.split(' → ')[0] }}">
                     </label>
@@ -399,24 +402,48 @@ tr:hover {
         document.addEventListener("DOMContentLoaded", function () {
             const formContainer = document.getElementById("form-container");
             const dropdownItems = document.querySelectorAll(".dropdown-item");
+            const dropdownToggle = document.getElementById("arrowDropdown");
 
-            // Show the selected form
+            // Show the selected form and close dropdown
             dropdownItems.forEach(item => {
                 item.addEventListener("click", function (e) {
                     e.preventDefault();
+                    e.stopPropagation(); // Stop event from bubbling
+                    
                     const targetId = this.getAttribute("data-target");
+                    
+                    // Hide all forms first
                     const forms = formContainer.querySelectorAll("form");
                     forms.forEach(form => form.style.display = "none");
-                    document.querySelector(targetId).style.display = "block";
-                    formContainer.style.display = "block";
+                    
+                    // Show selected form
+                    const targetForm = document.querySelector(targetId);
+                    if (targetForm) {
+                        targetForm.style.display = "block";
+                        formContainer.style.display = "block";
+                    }
+                    
+                    // Close the Bootstrap dropdown
+                    const dropdown = bootstrap.Dropdown.getInstance(dropdownToggle);
+                    if (dropdown) {
+                        dropdown.hide();
+                    }
                 });
             });
 
             // Close form container when clicking outside
             document.addEventListener("click", function(e) {
-                if (!formContainer.contains(e.target) && !document.getElementById("arrowDropdown").contains(e.target)) {
+                // Check if click is outside both form container and dropdown button
+                if (!formContainer.contains(e.target) && 
+                    !dropdownToggle.contains(e.target) &&
+                    !e.target.closest('.dropdown-menu')) {
                     formContainer.style.display = "none";
                 }
+            });
+
+            // Prevent form container clicks from closing it
+            formContainer.addEventListener("click", function(e) {
+                e.stopPropagation();
             });
 
             // Attach submit handlers to each form
@@ -426,23 +453,60 @@ tr:hover {
                     e.preventDefault();
 
                     let query = "";
+                    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD
 
                     if (form.id === "dayform") {
                         const day = form.querySelector("#day").value;
-                        query = `?date=${encodeURIComponent(day)}`;
+                        if (!day) {
+                            alert("Please select a day");
+                            return;
+                        }
+                        // If selected date is today, go to clean URL (no parameters)
+                        if (day === today) {
+                            query = "";
+                        } else {
+                            query = `?date=${encodeURIComponent(day)}`;
+                        }
                     } else if (form.id === "weekform") {
                         const week = form.querySelector("#week").value;
+                        if (!week) {
+                            alert("Please select a week");
+                            return;
+                        }
                         query = `?week=${encodeURIComponent(week)}`;
                     } else if (form.id === "monthform") {
                         const month = form.querySelector("#month").value;
+                        if (!month) {
+                            alert("Please select a month");
+                            return;
+                        }
                         query = `?month=${encodeURIComponent(month)}`;
                     } else if (form.id === "rangeform") {
                         const start = form.querySelector(".action-start").value;
                         const end = form.querySelector(".action-end").value;
-                        query = `?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`;
+                        if (!start || !end) {
+                            alert("Please select both start and end dates");
+                            return;
+                        }
+                        if (start > end) {
+                            alert("Start date must be before end date");
+                            return;
+                        }
+                        // If range is just today, go to clean URL
+                        if (start === today && end === today) {
+                            query = "";
+                        } else {
+                            query = `?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`;
+                        }
                     }
 
-                    // Redirect to filtered view
+                    // Show loading spinner
+                    const spinner = document.getElementById("spinner");
+                    if (spinner) {
+                        spinner.style.display = "inline-block";
+                    }
+
+                    // Redirect to filtered view (or clean URL if today)
                     window.location.href = window.location.pathname + query;
                 });
             });
@@ -453,21 +517,23 @@ tr:hover {
         }
 
         // Handle active filter dropdown selection
-        document.querySelectorAll('#activeFilterDropdown + .dropdown-menu .dropdown-item').forEach(item => {
-            item.addEventListener('click', function(e) {
-                e.preventDefault();
-                const filterValue = this.getAttribute('data-filter');
-                const filterInput = document.getElementById('active_filter');
-                const filterLabel = document.getElementById('activeFilterLabel');
-                
-                // Update hidden input value
-                filterInput.value = filterValue;
-                
-                // Update button label
-                filterLabel.textContent = filterValue === 'active' ? 'Active Only' : 'All Operators';
-                
-                // Submit the form
-                document.getElementById('filter-form').submit();
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll('#activeFilterDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const filterValue = this.getAttribute('data-filter');
+                    const filterInput = document.getElementById('active_filter');
+                    const filterLabel = document.getElementById('activeFilterLabel');
+                    
+                    // Update hidden input value
+                    filterInput.value = filterValue;
+                    
+                    // Update button label
+                    filterLabel.textContent = filterValue === 'active' ? 'Active Only' : 'All Operators';
+                    
+                    // Submit the form
+                    document.getElementById('filter-form').submit();
+                });
             });
         });
     </script>
