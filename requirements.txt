@@ -1,8 +1,8 @@
-fastapi
-uvicorn[standard]
+Flask
+flask-cors
 mysql-connector-python
+gunicorn
 scipy
 numpy
 jinja2
-python-multipart
 requests

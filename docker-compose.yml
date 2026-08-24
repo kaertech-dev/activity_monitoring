@@ -6,9 +6,8 @@ services:
     image: monitoring_v1            # builds and tags the image as monitoring_v1
     container_name: activity_monitoring
     ports:
-      - "5000:5000"
+      - "5002:5002"
     restart: always
-    command: uvicorn main:app --host 0.0.0.0 --port 5000
     networks:
       - manufacturing_network
  

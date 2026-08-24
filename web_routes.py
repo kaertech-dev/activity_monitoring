@@ -1,8 +1,6 @@
 # activity_monitoring/web_routes.py
-"""Web page route handlers - Refactored"""
-from fastapi import APIRouter, Request, Query, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+"""Web page route handlers (Flask blueprint)"""
+from flask import Blueprint, render_template, request, abort
 from typing import Optional
 from datetime import datetime, timedelta
 import logging
@@ -10,11 +8,9 @@ import re
 
 from services import fetch_production_data, apply_filters, get_operator_statistics, get_active_operators, get_operator_name
 from utils import get_production_start_time
-import os
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+web_bp = Blueprint('web', __name__)
 
 
 def parse_date_parameters(
@@ -63,108 +59,108 @@ def parse_date_parameters(
     return None, None
 
 
-@router.get("/", response_class=HTMLResponse)
-async def show_operator_en_today(
-    request: Request,
-    date: Optional[str] = Query(None),
-    week: Optional[str] = Query(None),
-    month: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    customer: Optional[str] = Query(None),
-    model: Optional[str] = Query(None),
-    station: Optional[str] = Query(None),
-    active_filter: Optional[str] = Query("all")
-):
+@web_bp.route('/', methods=['GET'])
+def show_operator_en_today():
     """Main dashboard endpoint"""
     try:
+        # Read query parameters
+        date = request.args.get('date')
+        week = request.args.get('week')
+        month = request.args.get('month')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        customer = request.args.get('customer')
+        model = request.args.get('model')
+        station = request.args.get('station')
+        active_filter = request.args.get('active_filter', 'all')
+
         # Parse dates
         parsed_start, parsed_end = parse_date_parameters(date, week, month, start_date, end_date)
-        
+
         # Fetch data
         records, _, active_databases, models, stations = fetch_production_data(parsed_start, parsed_end)
-        
+
         # Apply filters
         filters = {"customer": customer, "model": model, "station": station}
         active_operators = get_active_operators(parsed_start, parsed_end) if active_filter == "active" else None
         filtered_records = apply_filters(records, filters, active_operators)
-        
+
         # Prepare table data
         columns = ['Customer', 'Model', 'Station', 'Operator', 'Output', 
                    'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
         rows = [tuple(record.to_dict()[col] for col in columns) for record in filtered_records]
-        
+
         # Date display
         if parsed_start and parsed_end:
             current_date_display = parsed_start if parsed_start == parsed_end else f"{parsed_start} → {parsed_end}"
         else:
             start_dt, _ = get_production_start_time()
             current_date_display = start_dt.strftime('%Y-%m-%d')
-        
-        return templates.TemplateResponse("monitoring_v1.html", {
-            "request": request,
-            "rows": rows,
-            "columns": columns,
-            "current_date": current_date_display,
-            "start_date": parsed_start or start_date,
-            "end_date": parsed_end or end_date,
-            "selected_db": customer,
-            "selected_model": model,
-            "selected_station": station,
-            "active_filter": active_filter,
-            "db": active_databases,
-            "models": models,
-            "stations": stations,
-            "total_records": len(filtered_records),
-            "active_operators_count": len(active_operators) if active_operators else None
-        })
+
+        return render_template("monitoring_v1.html",
+            rows=rows,
+            columns=columns,
+            current_date=current_date_display,
+            start_date=parsed_start or start_date,
+            end_date=parsed_end or end_date,
+            selected_db=customer,
+            selected_model=model,
+            selected_station=station,
+            active_filter=active_filter,
+            db=active_databases,
+            models=models,
+            stations=stations,
+            total_records=len(filtered_records),
+            active_operators_count=len(active_operators) if active_operators else None,
+            request=request
+        )
     except Exception as e:
         logger.error(f"Dashboard error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        abort(500, description=str(e))
 
 
-@router.get("/operator/{operator_identifier}", response_class=HTMLResponse)
-async def show_operator_activity(request: Request, operator_identifier: str):
+@web_bp.route('/operator/<operator_identifier>', methods=['GET'])
+def show_operator_activity(operator_identifier: str):
     """
     Show specific operator activity.
     operator_identifier can be either operator name or operator_en code.
     """
     try:
         records, today_str, _, _, _ = fetch_production_data()
-        
+
         # Try to find records by name first, then fall back to code
         stats = get_operator_statistics(records, operator_identifier)
-        
+
         # If no records found and identifier looks like a code (e.g., KE0447),
         # try to get the name and search again
         if not stats['records'] and re.match(r'^[A-Z]{2}\d{4}$', operator_identifier):
             operator_name = get_operator_name(operator_identifier)
             if operator_name != operator_identifier:
                 stats = get_operator_statistics(records, operator_name)
-        
+
         # Determine display name
         display_name = operator_identifier
         if stats['records']:
             display_name = stats['records'][0].operator
-        
+
         columns = ['Customer', 'Model', 'Station', 'Operator', 'Output',
                    'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status']
         rows = [tuple(record.to_dict()[col] for col in columns) for record in stats['records']]
-        
-        return templates.TemplateResponse("operator_activity.html", {
-            "request": request,
-            "rows": rows,
-            "columns": columns,
-            "current_date": today_str,
-            "operator_name": display_name,
-            "serials": stats['serials'],
-            "operator_stats": {
+
+        return render_template("operator_activity.html",
+            rows=rows,
+            columns=columns,
+            current_date=today_str,
+            operator_name=display_name,
+            serials=stats['serials'],
+            operator_stats={
                 "total_output": stats['total_output'],
                 "total_duration_hours": stats['total_duration_hours'],
                 "mode_cycle_time": stats['mode_cycle_time'],
                 "stations_count": stats['stations_count']
-            }
-        })
+            },
+            request=request
+        )
     except Exception as e:
         logger.error(f"Operator activity error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch operator data")
+        abort(500, description="Failed to fetch operator data")

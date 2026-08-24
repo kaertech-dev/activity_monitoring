@@ -1,6 +1,6 @@
 """Break time management and tracking"""
-from typing import List, Dict, Optional, Tuple
-from datetime import datetime, timedelta
+from typing import List, Dict, Tuple
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)

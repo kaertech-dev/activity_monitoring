@@ -1,8 +1,33 @@
-/* Fixed CSS with higher specificity to prevent Bootstrap override */
+/* monitoring_v1.css
+   Single source of truth for page styling. Previously this file was being
+   silently overridden by a near-duplicate <style> block inline in
+   monitoring_v1.html — since both defined the same selectors at the same
+   specificity, whichever appeared LATER in the document won, which was
+   always the inline block. That inline block has been removed from the
+   template; every rule it contained now lives here instead.
 
-img {
-    border: 2px solid black;
-    border-radius: 10px;
+   TV-DASHBOARD PASS: this file is shown unattended on a company dashboard
+   TV, viewed from across a room rather than from a desk. The changes below
+   focus on: (1) text that stays readable at distance regardless of the
+   TV's native resolution, (2) removing/softening motion that has no payoff
+   on a display nobody touches, and (3) not breaking the existing phone/
+   tablet layout, since the same page may still be checked on mobile. */
+:root {
+    --primary-green: #27c033;
+    --dark-green: #1a8022;
+    --light-green: hsla(120, 51%, 75%, 0.3);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Base elements                                                          */
+/* ---------------------------------------------------------------------- */
+
+*, ::after, ::before {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -10,22 +35,346 @@ body {
     margin: 20px;
     background-color: #f0f2f5;
     color: #333;
+    /* Sharper glyph rendering at the large sizes below matters more on a
+       TV panel viewed from several meters away than it does on a monitor. */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
 }
 
 h1 {
     text-align: center;
     color: #2c3e50;
     font-family: Arial;
-    font-size: clamp(20px, 4vw, 50px);
+    /* Old cap (50px) was reached by any screen wider than ~750px, so a
+       1920px or 4K TV rendered the exact same title size as a tablet.
+       Raising the ceiling lets the title keep growing on genuinely large
+       panels while leaving small/medium screens untouched. */
+    font-size: clamp(20px, 3vw, 72px);
     font-weight: bold;
 }
 
 h2 {
     font-family: Arial;
-    font-size: 60px;
+    /* Was a flat 60px with no scaling at all; clamp keeps it from shrinking
+       awkwardly on narrow views while still growing on a big TV. */
+    font-size: clamp(32px, 3vw, 76px);
 }
 
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    color: #777;
+    font-size: clamp(12px, 0.9vw, 16px);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Header / status indicator                                              */
+/* ---------------------------------------------------------------------- */
+
+/* The h1 wrapper and its absolutely-positioned status badge (top-right)
+   only worked at desktop widths. On narrow screens the fixed negative
+   offsets (top:-90px / right:-40px) pushed the badge off-canvas or on top
+   of the title text. This block keeps desktop behavior unchanged and only
+   switches to an in-flow, centered layout below ~768px. */
+.header-wrap {
+    position: relative;
+}
+
+.status-indicator-container {
+    position: absolute;
+    top: -90px;
+    right: -40px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+}
+
+#status-image {
+    width: 200px;
+    height: 240px;
+    transition: all 0.5s ease;
+}
+
+#status-text {
+    font-weight: bold;
+    /* 14px flat was legible on a monitor at arm's length but disappears on
+       a TV viewed from across a room. Scales up on large screens, holds
+       the old size on small ones. */
+    font-size: clamp(14px, 1vw, 20px);
+    color: var(--primary-green);
+    margin-top: -90px;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Filter controls wrapper (auto-hide on inactivity)                      */
+/* ---------------------------------------------------------------------- */
+
+#filter-controls-wrapper {
+    transition: opacity 0.5s ease, max-height 0.5s ease, margin 0.5s ease;
+    overflow: visible;
+    max-height: 200px;
+    opacity: 1;
+    position: relative;
+}
+
+#filter-controls-wrapper.hidden {
+    opacity: 0;
+    max-height: 0;
+    margin: 0 !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Date-range dropdown form popover                                       */
+/* ---------------------------------------------------------------------- */
+
+#form-container {
+    position: absolute;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    display: none;
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    margin-top: 0.5rem;
+    top: 30px;
+    right: 160px;
+}
+
+/* Re-enabled: this had gotten commented out, which would have made the
+   Day/Week/Month/Range popover's own fields lay out as unstyled stacked
+   block elements instead of the flexed, wrapped row it was designed for. */
+#form-container form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.gap-2 {
+    gap: .5rem !important;
+}
+
+.mb-2 {
+    margin-bottom: .5rem !important;
+}
+
+.align-items-center {
+    align-items: center !important;
+}
+
+.position-relative {
+    position: relative !important;
+}
+
+.d-flex {
+    display: flex !important;
+}
+
+.dropdown, .dropdown-center, .dropend, .dropstart, .dropup, .dropup-center {
+    position: relative;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-menu-end {
+    --bs-position: end;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Filter dropdowns (customer / model / station / active-only)            */
+/* ---------------------------------------------------------------------- */
+
+#customer,
+#model,
+#station,
+#active_filter {
+    min-width: 180px;
+    max-width: 250px;
+    padding: 6px 10px;
+    font-size: 16px;
+    border: 2px solid var(--primary-green);
+    border-radius: 6px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+#customer:hover,
+#model:hover,
+#station:hover,
+#active_filter:hover {
+    border-color: var(--dark-green);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Dropdown TOGGLE buttons (the arrow-icon "Day/Week/Month/Range" button and
+   the "Active Only / All Operators" button). These use Bootstrap's plain
+   .btn-secondary classes and were never given custom styling, so they were
+   rendering as bare gray Bootstrap buttons with no branding - unlike the
+   select/input fields above, which do pick up the green theme. */
+#arrowDropdown,
+#activeFilterDropdown {
+    min-width: 44px;
+    padding: 6px 14px;
+    font-size: 16px;
+    border: 2px solid var(--primary-green);
+    border-radius: 6px;
+    background-color: var(--primary-green);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+.btn-secondary {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #6c757d;
+    --bs-btn-border-color: #6c757d;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #5c636a;
+    --bs-btn-hover-border-color: #565e64;
+    --bs-btn-focus-shadow-rgb: 130, 138, 145;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #565e64;
+    --bs-btn-active-border-color: #51585e;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #6c757d;
+    --bs-btn-disabled-border-color: #6c757d;
+}
+.btn.disabled, .btn:disabled, fieldset:disabled .btn {
+    color: var(--bs-btn-disabled-color);
+    pointer-events: none;
+    background-color: var(--bs-btn-disabled-bg);
+    border-color: var(--bs-btn-disabled-border-color);
+    opacity: var(--bs-btn-disabled-opacity);
+}
+
+[type=button]:not(:disabled), [type=reset]:not(:disabled), [type=submit]:not(:disabled), button:not(:disabled) {
+    cursor: pointer;
+}
+
+#arrowDropdown:hover,
+#activeFilterDropdown:hover,
+#arrowDropdown:focus,
+#activeFilterDropdown:focus {
+    background-color: var(--dark-green);
+    border-color: var(--dark-green);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* #arrowDropdown has no label text, only Bootstrap's ::after caret - give it
+   a fixed minimum footprint so it doesn't collapse to a near-invisible dot. */
+#arrowDropdown {
+    min-height: 38px;
+}
+
+/* Dropdown menu items - Bootstrap defaults these to plain black-on-white;
+   tie the hover/active state back to the same green theme. */
+.dropdown-menu .dropdown-item:hover,
+.dropdown-menu .dropdown-item:focus {
+    background-color: var(--light-green);
+    color: var(--dark-green);
+}
+
+.dropdown-menu .dropdown-item.active,
+.dropdown-menu .dropdown-item:active {
+    background-color: var(--primary-green);
+    color: #fff;
+}
+.dropdown-menu {
+    --bs-dropdown-zindex: 1000;
+    --bs-dropdown-min-width: 10rem;
+    --bs-dropdown-padding-x: 0;
+    --bs-dropdown-padding-y: 0.5rem;
+    --bs-dropdown-spacer: 0.125rem;
+    --bs-dropdown-font-size: 1rem;
+    --bs-dropdown-color: var(--bs-body-color);
+    --bs-dropdown-bg: var(--bs-body-bg);
+    --bs-dropdown-border-color: var(--bs-border-color-translucent);
+    --bs-dropdown-border-radius: var(--bs-border-radius);
+    --bs-dropdown-border-width: var(--bs-border-width);
+    --bs-dropdown-inner-border-radius: calc(var(--bs-border-radius) - var(--bs-border-width));
+    --bs-dropdown-divider-bg: var(--bs-border-color-translucent);
+    --bs-dropdown-divider-margin-y: 0.5rem;
+    --bs-dropdown-box-shadow: var(--bs-box-shadow);
+    --bs-dropdown-link-color: var(--bs-body-color);
+    --bs-dropdown-link-hover-color: var(--bs-body-color);
+    --bs-dropdown-link-hover-bg: var(--bs-tertiary-bg);
+    --bs-dropdown-link-active-color: #fff;
+    --bs-dropdown-link-active-bg: #0d6efd;
+    --bs-dropdown-link-disabled-color: var(--bs-tertiary-color);
+    --bs-dropdown-item-padding-x: 1rem;
+    --bs-dropdown-item-padding-y: 0.25rem;
+    --bs-dropdown-header-color: #6c757d;
+    --bs-dropdown-header-padding-x: 1rem;
+    --bs-dropdown-header-padding-y: 0.5rem;
+    position: absolute;
+    display: none;
+    min-width: var(--bs-dropdown-min-width);
+    padding: var(--bs-dropdown-padding-y) var(--bs-dropdown-padding-x);
+    margin: 0;
+    font-size: var(--bs-dropdown-font-size);
+    color: var(--bs-dropdown-color);
+    text-align: left;
+    list-style: none;
+    background-color: var(--bs-dropdown-bg);
+    background-clip: padding-box;
+    border: var(--bs-dropdown-border-width) solid var(--bs-dropdown-border-color);
+    border-radius: var(--bs-dropdown-border-radius);
+}
+
+.dropdown-toggle {
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Loading overlay                                                        */
+/* ---------------------------------------------------------------------- */
+
+#loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.95);
+    justify-content: center;
+    align-items: center;
+}
+
+#loading-overlay.active {
+    display: flex;
+}
+
+.bouncing-logo {
+    width: 120px;
+    height: 120px;
+    animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 40%, 60%, 80%, 100% { transform: translateY(0) rotate(0deg); }
+    10% { transform: translateY(-200px) rotate(36deg); }
+    30% { transform: translateY(-150px) rotate(108deg); }
+    50% { transform: translateY(-100px) rotate(180deg); }
+    70% { transform: translateY(-50px) rotate(252deg); }
+    90% { transform: translateY(-20px) rotate(324deg); }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Table                                                                  */
+/* ---------------------------------------------------------------------- */
+
 .table-container {
+    display: grid;
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -34,44 +383,61 @@ h2 {
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 25px auto;
-    min-width: 800px;
+    border-spacing: 0;
+    margin-top: 5px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;
     background-color: #fff;
 }
-
-td:hover, th:hover {
-    transform: scale(1.2);
-    background-color: #8efd8e !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    z-index: 1;
-    position: relative;
-} 
-
+.table-responsive{
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 th, td {
     padding: 12px 15px;
     text-align: center;
     border-bottom: 1px solid #ffffff;
-    font-size: clamp(20px, 2vw, 20px);
+    /* This was clamp(20px, 2vw, 20px) — a min and a max that are identical,
+       so it was really just "20px" with extra steps and never grew on a
+       bigger panel. Table text is the data people are actually reading
+       from across the room, so it benefits most from real TV scaling. */
+    font-size: clamp(20px, 1.3vw, 34px);
     font-family: 'Arial';
     font-weight: bolder;
     transition: transform 0.3s ease, background-color 0.3s ease;
 }
 
-/* Alternate row colors */
-tr:nth-child(even) {
-    background-color: hsla(120, 84%, 75%, 0.068) !important;
+/* Only apply hover transformations on devices that support hover to avoid
+   accidental large scaling on touch devices. A TV with no pointer/remote
+   cursor never matches (hover: hover) and (pointer: fine), so this block
+   is already inert there by design — kept as-is for the desktop admin view. */
+@media (hover: hover) and (pointer: fine) {
+    td:hover, th:hover {
+        transform: scale(1.05);
+        background-color: #8efd8e !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        position: relative;
+    }
 }
 
-tr:nth-child(odd) {
-    background-color: #ffffff;
+th {
+    background-color: var(--primary-green);
+    color: #fff;
+    font-size: clamp(20px, 1.3vw, 32px);
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
-/* More specific selectors that override Bootstrap's styles */
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* More specific selectors so these win over Bootstrap's own .table rules */
 .table th {
-    background-color: #27c033 !important;
+    background-color: var(--primary-green) !important;
     color: white !important;
     font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .table td {
@@ -81,7 +447,7 @@ tr:nth-child(odd) {
 }
 
 .table tr:nth-child(even) td {
-    background-color: hsla(120, 51%, 75%, 0.3) !important;
+    background-color: var(--light-green) !important;
 }
 
 .table-hover tbody tr:hover td,
@@ -89,107 +455,363 @@ tr:nth-child(odd) {
     background-color: #f1f1f1 !important;
 }
 
-/* STATUS INDICATOR SQUARES - Enhanced specificity to prevent override */
+/* Row rotation animation (product blocks floating to the top) */
+.table tbody tr {
+    transition: transform 0.8s ease, opacity 0.8s ease;
+    position: relative;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .table tbody tr:hover {
+        transform: scale(1.05) translateY(-8px);
+        background-color: #f9f9f9;
+    }
+}
+
+.table tbody tr.moving-up {
+    transform: translateY(-100%);
+}
+
+/* Fallback "no records" table striping */
+tr:nth-child(even) {
+    background-color: hsla(120, 84%, 75%, 0.068) !important;
+}
+
+tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+#no-record td {
+    background-color: var(--primary-green) !important;
+    color: #fff !important;
+    font-weight: bold;
+    text-align: center;
+}
+
+.btn-check:checked+.btn, .btn.active, .btn.show, .btn:first-child:active, :not(.btn-check)+.btn:active {
+    color: var(--bs-btn-active-color);
+    background-color: var(--bs-btn-active-bg);
+    border-color: var(--bs-btn-active-border-color);
+}
+
+.btn-success {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #198754;
+    --bs-btn-border-color: #198754;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #157347;
+    --bs-btn-hover-border-color: #146c43;
+    --bs-btn-focus-shadow-rgb: 60, 153, 110;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #146c43;
+    --bs-btn-active-border-color: #13653f;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #198754;
+    --bs-btn-disabled-border-color: #198754;
+}
+
+.btn {
+    --bs-btn-padding-x: 0.75rem;
+    --bs-btn-padding-y: 0.375rem;
+    --bs-btn-font-family: ;
+    --bs-btn-font-size: 1rem;
+    --bs-btn-font-weight: 400;
+    --bs-btn-line-height: 1.5;
+    --bs-btn-color: var(--bs-body-color);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-width: var(--bs-border-width);
+    --bs-btn-border-color: transparent;
+    --bs-btn-border-radius: var(--bs-border-radius);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 1px rgba(0, 0, 0, 0.075);
+    --bs-btn-disabled-opacity: 0.65;
+    --bs-btn-focus-box-shadow: 0 0 0 0.25rem rgba(var(--bs-btn-focus-shadow-rgb), .5);
+    display: inline-block;
+    padding: var(--bs-btn-padding-y) var(--bs-btn-padding-x);
+    font-family: var(--bs-btn-font-family);
+    font-size: var(--bs-btn-font-size);
+    font-weight: var(--bs-btn-font-weight);
+    line-height: var(--bs-btn-line-height);
+    color: var(--bs-btn-color);
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    border: var(--bs-btn-border-width) solid var(--bs-btn-border-color);
+    border-radius: var(--bs-btn-border-radius);
+    background-color: var(--bs-btn-bg);
+    transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Status indicator squares                                               */
+/* ---------------------------------------------------------------------- */
+
 span.square {
-    height: 35px;
-    width: 50px;
+    /* Fixed 35x50 px reads as a small colored dot from across a room.
+       Scaling it up (with a floor at the old size) keeps the green/orange/
+       red status legible at a glance, which is the whole point of a status
+       square on a wall-mounted dashboard. */
+    height: clamp(35px, 2vw, 54px);
+    width: clamp(50px, 2.8vw, 76px);
     border-radius: 10px;
     display: inline-block;
     border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
-/* Use !important and more specific selectors to ensure colors are applied few*/
 td span.square.green,
 .table td span.square.green {
-    background-color: #28a745 !important;  /* Bootstrap's success green */
+    background-color: #28a745 !important;
     border-color: #1e7e34 !important;
-} 
+}
 
-/* ...existing code...  */
 td span.square.orange,
 .table td span.square.orange {
-    background-color: hsl(27, 98%, 54%) !important;  /* orange */
+    background-color: hsl(27, 98%, 54%) !important;
     border-color: hsl(27, 98%, 44%) !important;
 }
-/* ...existing code... */
+
 td span.square.red,
 .table td span.square.red {
-    background-color: #dc3545 !important;  /* Bootstrap's danger red */
+    background-color: #dc3545 !important;
     border-color: #bd2130 !important;
 }
- 
-th {
-    background-color: #27c033;
-    color: #fff;
-    font-size: 20px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
 
-tr:hover {
-    background-color: #f1f1f1;
-}
+/* ---------------------------------------------------------------------- */
+/* Pagination                                                             */
+/* ---------------------------------------------------------------------- */
 
-.footer {
+.pagination-info {
     text-align: center;
-    margin-top: 40px;
-    color: #777;
-}
-
-/* Dropdown styles */
-#customer, 
-#model, 
-#station {
-    min-width: 180px;
-    max-width: 250px;
-    padding: 6px 10px;
-    font-size: 16px;
-    border: 2px solid #27c033;
-    border-radius: 6px;
-    background-color: #fff;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-}
-
-#customer:hover, 
-#model:hover, 
-#station:hover {
-    border-color: #1a8022;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
-#no-record td {
-    background-color: #27c033 !important;
-    color: #fff !important;
+    margin-top: 10px;
+    font-size: clamp(16px, 1vw, 24px);
     font-weight: bold;
-    text-align: center;
+    color: var(--primary-green);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Motion: respect reduced-motion, and don't animate forever unattended   */
+/* ---------------------------------------------------------------------- */
+
+/* This page runs unattended and on a loop, so animations never get a
+   one-time "user preference" check the way an interactive site would.
+   Honoring prefers-reduced-motion still matters for anyone reviewing this
+   dashboard on their own machine, and it's a no-cost safety net. */
+@media (prefers-reduced-motion: reduce) {
+    .bouncing-logo {
+        animation: none;
+    }
+
+    .table tbody tr,
+    #status-image,
+    #filter-controls-wrapper,
+    .btn,
+    #customer,
+    #model,
+    #station,
+    #active_filter,
+    #arrowDropdown,
+    #activeFilterDropdown {
+        transition: none !important;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Large-screen / TV tuning                                               */
+/* ---------------------------------------------------------------------- */
+
+/* Everything above already scales gradually via clamp(), but a common
+   1920px-wide TV benefits from a bit more breathing room in the table than
+   a 1920px-wide desktop monitor does, since the viewer is much further
+   away. Widen row padding and tighten letter-spacing headroom slightly at
+   that size and up. */
+@media screen and (min-width: 1600px) {
+    th, td {
+        padding: 16px 20px;
+    }
+
+    body {
+        margin: 28px;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Responsive breakpoints                                                 */
+/* ---------------------------------------------------------------------- */
+
+/* Tablet and below: tighten body padding, let the filter row wrap, and
+   collapse the status badge back into normal document flow so it can never
+   overlap the title. */
+@media screen and (max-width: 768px) {
+    body {
+        margin: 10px;
+    }
+
+    .header-wrap h1 {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-indicator-container {
+        position: static;
+        margin-top: 4px;
+    }
+
+    #status-image {
+        width: 110px;
+        height: 132px;
+    }
+
+    #status-text {
+        margin-top: 4px;
+        white-space: normal;
+        font-size: 13px;
+    }
+
+    /* Filter row — the previous version let each plain-text label
+       ("Customer:", "Model:", "Station:") share a wrapped line with a
+       45%-wide select, with no guarantee a label and its own control ended
+       up on the same line. That's what produced the jumbled
+       "Customer: [dropdown]  Model:" / "[dropdown]  Station:" layout: the
+       browser wraps by whatever fits, not by which label belongs to which
+       field. Forcing every child onto its own full-width row removes that
+       ambiguity — each label sits directly above the control after it in
+       the markup, regardless of exact DOM grouping. Both selectors are kept
+       since the actual wrapping element's id isn't confirmed without the
+       HTML — harmless if one doesn't match. */
+    #filter-controls-wrapper .d-flex,
+    #filter-form .d-flex {
+        flex-direction: column;
+        align-items: stretch;
+        row-gap: 0.5rem;
+    }
+
+    #filter-controls-wrapper .d-flex > *,
+    #filter-form .d-flex > * {
+        width: 100%;
+        flex: 1 1 auto;
+        min-width: 0;
+        margin: 0 !important;
+    }
+
+    #customer,
+    #model,
+    #station,
+    #active_filter,
+    #arrowDropdown {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* The date-range popover is positioned relative to the arrow button by a
+       fixed `right: 160px`, which runs off-screen once the viewport itself
+       is narrower than ~350-400px. Anchor it to the wrapper edges instead. */
+    #form-container {
+        right: 0;
+        left: 0;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: calc(100vw - 20px);
+    }
+
+    #form-container form {
+        justify-content: center;
+    }
+
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    th, td {
+        padding: 8px 10px;
+        font-size: 14px;
+    }
+
+    .table-responsive, .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    tr:hover {
+        transform: none;
+    }
 }
 
 @media screen and (max-width: 768px) {
     table, thead, tbody, th, td, tr {
         display: block;
     }
-    
-    thead {
+
+    thead, th {
         display: none;
     }
-    
-    th {
-        display: none;
-    }
-    
+
     td {
         position: relative;
-        padding-left: 50%;
+        padding: 10px 10px 10px 50%;
         text-align: left;
+        border-bottom: 1px solid #eee;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
         font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
     }
-    
+
+    tr.table-row {
+        border-bottom: 3px solid #f0f2f5;
+    }
+
     td::before {
         content: attr(data-label);
         position: absolute;
+        top: 50%;
         left: 15px;
+        transform: translateY(-50%);
         font-weight: bold;
-        color: #333;
+        color: var(--dark-green);
+    }
+
+    td:hover, th:hover {
+        transform: none;
+        background-color: inherit !important;
+    }
+
+    .bouncing-logo {
+        width: 80px;
+        height: 80px;
+    }
+}
+
+/* Small phones: shrink the logo/title further and stack filter dropdowns
+   full-width instead of a 45% grid, which gets cramped under ~420px. */
+@media screen and (max-width: 480px) {
+    .header-wrap h1 img:not(#status-image) {
+        width: 50px !important;
+        height: 50px !important;
+    }
+
+    #status-image {
+        width: 90px;
+        height: 108px;
+    }
+
+    #customer,
+    #model,
+    #station,
+    #active_filter {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+
+    .btn {
+        font-size: 0.9rem;
+        padding: 0.35rem 0.6rem;
     }
 }
