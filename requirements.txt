@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 fastapi==0.115.0
 uvicorn[standard]
+=======
+Flask
+flask-cors
+>>>>>>> 416f2c7c818f8cfc6c9d767707229921ca21cb0d
 mysql-connector-python
+gunicorn
 scipy
 numpy
 jinja2
-python-multipart
 requests

@@ -1,37 +1,20 @@
-"""Main application file - Production Monitoring System"""
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.staticfiles import StaticFiles
+"""Main application file - Production Monitoring System (Flask)"""
+from flask import Flask
+from flask_cors import CORS
+from web_routes import web_bp
+from api_routes import api_bp
 
-# Import routers
-from web_routes import router as web_router
-from api_routes import router as api_router
+def create_app():
+    """Create and configure the Flask application."""
+    app = Flask(__name__, static_folder="static", template_folder="templates")
+    # Allow all origins by default; update as needed
+    CORS(app, resources={r"/*": {"origins": ["*"]}}, supports_credentials=True)
 
-# Initialize FastAPI app
-app = FastAPI(title="Production Monitoring System", version="2.0.0")
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["", ""], #add your allowed origins here
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Include routers
-app.include_router(web_router, tags=["web"])
-app.include_router(api_router, tags=["api"])
+    # Register blueprints
+    app.register_blueprint(web_bp)
+    app.register_blueprint(api_bp)
+    return app
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=5002,
-        reload=False,
-        log_level="info"
-    )
+    app = create_app()
+    app.run(host="0.0.0.0", port=5000)
