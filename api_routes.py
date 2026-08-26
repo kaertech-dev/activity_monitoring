@@ -1,7 +1,7 @@
 # activity_monitoring/api_routes.py
-"""API route handlers - Updated for employee names"""
-from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+"""API route handlers (Flask blueprint) - Updated for employee names,
+active project filtering, and _main-based station ordering"""
+from flask import Blueprint, request, jsonify, Response, abort
 from typing import Optional
 from datetime import datetime, timedelta
 import logging
@@ -9,54 +9,101 @@ import csv
 import io
 import re
 
-from services import fetch_production_data, apply_filters, get_active_operators
+from services import (
+    fetch_production_data,
+    apply_filters,
+    get_active_operators,
+    get_ordered_stations_for_model,
+)
 from utils import get_production_start_time
 from database import get_db_connection
 from config import db_config
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+api_bp = Blueprint('api', __name__)
 
 
-@router.get("/api/operator_today", response_class=JSONResponse)
-async def api_operator_today(
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    customer: Optional[str] = Query(None),
-    model: Optional[str] = Query(None),
-    station: Optional[str] = Query(None),
-    active_filter: Optional[str] = Query("all")
-):
+@api_bp.route('/api/operator_today', methods=['GET'])
+def api_operator_today():
     """Get today's operator data"""
     try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        customer = request.args.get('customer')
+        model = request.args.get('model')
+        station = request.args.get('station')
+        active_filter = request.args.get('active_filter', 'all')
+
         records, date_str, _, _, _ = fetch_production_data(start_date, end_date)
-        
+
         filters = {"customer": customer, "model": model, "station": station}
         active_operators = get_active_operators(start_date, end_date) if active_filter == "active" else None
         filtered_records = apply_filters(records, filters, active_operators)
-        
-        return {
+
+        return jsonify({
             "date": date_str,
             "count": len(filtered_records),
             "records": [record.to_dict() for record in filtered_records],
             "active_operators_count": len(active_operators) if active_operators else None
-        }
+        })
     except Exception as e:
         logger.error(f"API error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch data")
+        abort(500, description="Failed to fetch data")
 
 
-@router.get("/api/download_csv", response_class=StreamingResponse)
-async def download_csv(
-    date: Optional[str] = Query(None),
-    week: Optional[str] = Query(None),
-    month: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    active_filter: Optional[str] = Query("all")
-):
+@api_bp.route('/api/get-models-stations', methods=['GET'])
+def get_models_stations():
+    """
+    Populate the model/station filter dropdowns for a given customer
+    (and optionally model). Stations are returned in the model's `_main`
+    sequence order (not alphabetically) and use the projectsdb.station
+    common name (cname) as the display label when one exists.
+
+    Query params:
+        customer (required): database/schema name
+        model (optional): if provided, stations for that model are returned
+
+    Response:
+        {
+          "models": ["modelA", "modelB", ...],
+          "stations": [{"code": "st1", "name": "Common Name"}, ...],
+          "count": {"models": N, "stations": M}
+        }
+    """
+    try:
+        customer = request.args.get('customer')
+        model = request.args.get('model')
+
+        if not customer:
+            abort(400, description="customer is required")
+
+        result = get_ordered_stations_for_model(customer, model)
+
+        return jsonify({
+            "models": result["models"],
+            "stations": [s["name"] for s in result["stations"]],
+            "stations_detail": result["stations"],  # includes raw code alongside display name
+            "count": {
+                "models": len(result["models"]),
+                "stations": len(result["stations"])
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"get-models-stations error: {e}")
+        abort(500, description="Failed to fetch models/stations")
+
+@api_bp.route('/api/download_csv', methods=['GET'])
+def download_csv():
     """Download production data as CSV"""
     try:
+        date = request.args.get('date')
+        week = request.args.get('week')
+        month = request.args.get('month')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        active_filter = request.args.get('active_filter', 'all')
+
         # Parse date parameters
         if date:
             start_date = end_date = date
@@ -71,14 +118,14 @@ async def download_csv(
         elif month:
             year, month_num = map(int, month.split('-'))
             start_dt = datetime(year, month_num, 1)
-            end_dt = (datetime(year + 1, 1, 1) if month_num == 12 
+            end_dt = (datetime(year + 1, 1, 1) if month_num == 12
                      else datetime(year, month_num + 1, 1)) - timedelta(days=1)
             start_date = start_dt.strftime('%Y-%m-%d')
             end_date = end_dt.strftime('%Y-%m-%d')
 
         # Fetch and filter records
         records, _, _, _, _ = fetch_production_data(start_date, end_date)
-        
+
         if active_filter == "active":
             active_operators = get_active_operators(start_date, end_date)
             records = [r for r in records if r.operator_code in active_operators]
@@ -86,14 +133,14 @@ async def download_csv(
         # Generate CSV
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['Customer', 'Model', 'Station', 'Operator Name', 'Operator Code', 'Output', 
+        writer.writerow(['Customer', 'Model', 'Station', 'Operator Name', 'Operator Code', 'Output',
                          'Cycle Time(s)', 'Target(s)', 'Start Time', 'End time', 'Status', 'Serial Numbers'])
 
         for record in records:
             writer.writerow([
                 record.customer.upper(),
                 record.model.upper(),
-                record.station.upper(),
+                (record.station_display or record.station).upper(),  # common name if available
                 record.operator,  # Employee name
                 record.operator_code,  # Operator code
                 record.output,
@@ -107,49 +154,47 @@ async def download_csv(
 
         output.seek(0)
         filename = f"production_data_{start_date or 'today'}_{active_filter}.csv"
-        
-        return StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv",
-            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-        )
+
+        resp = Response(output.getvalue(), mimetype='text/csv')
+        resp.headers.set('Content-Disposition', f'attachment; filename="{filename}"')
+        return resp
     except Exception as e:
         logger.error(f"CSV error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        abort(500, description=str(e))
 
 
-@router.get("/api/statistics", response_class=JSONResponse)
-async def get_production_statistics(
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    customer: Optional[str] = Query(None),
-    model: Optional[str] = Query(None),
-    station: Optional[str] = Query(None),
-    active_filter: Optional[str] = Query("all")
-):
+@api_bp.route('/api/statistics', methods=['GET'])
+def get_production_statistics():
     """Get production statistics"""
     try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        customer = request.args.get('customer')
+        model = request.args.get('model')
+        station = request.args.get('station')
+        active_filter = request.args.get('active_filter', 'all')
+
         records, date_str, _, _, _ = fetch_production_data(start_date, end_date)
-        
+
         filters = {"customer": customer, "model": model, "station": station}
         active_operators = get_active_operators(start_date, end_date) if active_filter == "active" else None
         filtered_records = apply_filters(records, filters, active_operators)
-        
+
         if not filtered_records:
-            return {"message": "No data found"}
-        
+            return jsonify({"message": "No data found"})
+
         # Calculate statistics
         total_output = sum(r.output for r in filtered_records)
         cycle_times = [r.cycle_time for r in filtered_records if r.cycle_time > 0]
-        
+
         status_counts = {}
         operator_outputs = {}
         for record in filtered_records:
             status_counts[record.status] = status_counts.get(record.status, 0) + 1
             # Use employee name for statistics
             operator_outputs[record.operator] = operator_outputs.get(record.operator, 0) + record.output
-        
-        return {
+
+        return jsonify({
             "summary": {
                 "total_output": total_output,
                 "total_operators": len(set(r.operator for r in filtered_records)),
@@ -157,24 +202,24 @@ async def get_production_statistics(
                 "date_range": date_str
             },
             "status_distribution": status_counts,
-            "top_operators": [{"operator": op, "output": out} 
+            "top_operators": [{"operator": op, "output": out}
                             for op, out in sorted(operator_outputs.items(), key=lambda x: x[1], reverse=True)[:5]],
             "active_operators_count": len(active_operators) if active_operators else None
-        }
+        })
     except Exception as e:
         logger.error(f"Statistics error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate statistics")
+        abort(500, description="Failed to generate statistics")
 
 
-@router.get("/health")
-async def health_check():
+@api_bp.route('/health', methods=['GET'])
+def health_check():
     """Health check endpoint"""
     try:
         with get_db_connection() as cursor:
             cursor.execute("SELECT 1")
             start_dt, end_dt = get_production_start_time()
-            
-            return {
+
+            return jsonify({
                 "status": "healthy",
                 "timestamp": datetime.now().isoformat(),
                 "database": "connected",
@@ -182,7 +227,7 @@ async def health_check():
                     "start": start_dt.strftime('%Y-%m-%d %H:%M:%S'),
                     "end": end_dt.strftime('%Y-%m-%d %H:%M:%S')
                 }
-            }
+            })
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unhealthy")
+        abort(503, description="Service unhealthy")

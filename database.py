@@ -2,7 +2,6 @@
 """Database connection and management"""
 from mysql.connector.pooling import MySQLConnectionPool
 from contextlib import contextmanager
-from fastapi import HTTPException
 import threading
 import logging
 from config import db_config
@@ -35,7 +34,7 @@ def get_db_connection():
         yield cursor
     except Exception as e:
         logger.error(f"Database connection error: {e}")
-        raise HTTPException(status_code=500, detail="Database connection failed")
+        raise RuntimeError("Database connection failed") from e
     finally:
         if cursor:
             cursor.close()
