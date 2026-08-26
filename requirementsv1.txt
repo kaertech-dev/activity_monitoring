@@ -1,0 +1,8 @@
+Flask
+flask-cors
+mysql-connector-python
+gunicorn
+scipy
+numpy
+jinja2
+requests
