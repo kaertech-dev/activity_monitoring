@@ -5,10 +5,10 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Copy requirements first (for caching)
-COPY requirements.txt .
+COPY requirementsv1.txt .
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirementsv1.0.0.1.txt
+RUN pip install --no-cache-dir -r requirementsv1.txt
 
 # Copy project files into container
 COPY . .
