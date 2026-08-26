@@ -6,7 +6,7 @@ services:
     image: monitoring_v1            # builds and tags the image as monitoring_v1
     container_name: activity_monitoring
     ports:
-      - "5002:5002"
+      - "5000:5000"
     restart: always
     networks:
       - manufacturing_network

@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose port 5000
-EXPOSE 5002
+EXPOSE 5000
 
 # Run the Flask app factory
 CMD ["gunicorn", "--bind", "0.0.0.0:5002", "--timeout", "180", "main:create_app()"]
