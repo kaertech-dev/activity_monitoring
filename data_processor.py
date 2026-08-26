@@ -2,6 +2,7 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -11,9 +12,9 @@ class ProductionDataProcessor:
     def get_table_columns(cursor, database: str, table: str) -> List[tuple]:
         """Get column information for a table"""
          # Validate database and table names to prevent SQL injection  
-        if not database.replace('_', '').replace('-', '').isalnum():  
+        if not re.fullmatch(r'[A-Za-z0-9_-]+', database):
             raise ValueError("Invalid database name")  
-        if not table.replace('_', '').replace('-', '').isalnum():  
+        if not re.fullmatch(r'[A-Za-z0-9_() -]+', table):
             raise ValueError("Invalid table name")  
         cursor.execute(f"USE `{database}`")
         cursor.execute(f"DESCRIBE `{table}`")

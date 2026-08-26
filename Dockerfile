@@ -17,5 +17,4 @@ COPY . .
 EXPOSE 5002
 
 # Run the Flask app factory
-CMD ["gunicorn", "--bind", "0.0.0.0:5002", "main:app"]
-
+CMD ["gunicorn", "--bind", "0.0.0.0:5002", "--timeout", "180", "main:create_app()"]

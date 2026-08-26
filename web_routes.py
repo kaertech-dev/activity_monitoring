@@ -12,7 +12,6 @@ from utils import get_production_start_time
 logger = logging.getLogger(__name__)
 web_bp = Blueprint('web', __name__)
 
-
 def parse_date_parameters(
     date: Optional[str] = None,
     week: Optional[str] = None,
@@ -57,7 +56,6 @@ def parse_date_parameters(
             logger.error(f"Error parsing month '{month}': {e}")
     
     return None, None
-
 
 @web_bp.route('/', methods=['GET'])
 def show_operator_en_today():
