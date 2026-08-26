@@ -1,8 +1,8 @@
-Flask
-flask-cors
-mysql-connector-python
-gunicorn
-scipy
-numpy
-jinja2
-requests
+Flask==3.1.3
+flask-cors==6.0.5
+mysql-connector-python==9.5.0
+gunicorn==26.2.0
+scipy==1.17.0
+numpy==2.2.6
+jinja2==3.1.6
+requests==2.32.5
