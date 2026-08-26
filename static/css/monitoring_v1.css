@@ -749,33 +749,57 @@ td span.square.red,
         display: block;
     }
 
+    table,
+    tbody,
+    tr.table-row {
+        width: 100%;
+    }
+
     thead, th {
         display: none;
     }
 
     td {
-        position: relative;
-        padding: 10px 10px 10px 50%;
+        display: grid;
+        grid-template-columns: minmax(7rem, 40%) minmax(0, 1fr);
+        gap: 0.5rem;
+        padding: 10px;
         text-align: left;
         border-bottom: 1px solid #eee;
         min-height: 40px;
-        display: flex;
         align-items: center;
         font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+        overflow-wrap: anywhere;
+    }
+
+    td::before {
+        position: static;
+        transform: none;
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
 
     tr.table-row {
         border-bottom: 3px solid #f0f2f5;
+        transform: none !important;
+        transition: none;
     }
 
     td::before {
         content: attr(data-label);
-        position: absolute;
-        top: 50%;
-        left: 15px;
-        transform: translateY(-50%);
         font-weight: bold;
         color: var(--dark-green);
+    }
+
+    td > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    td button {
+        justify-self: start;
+        overflow-wrap: anywhere;
+        white-space: normal;
     }
 
     td:hover, th:hover {

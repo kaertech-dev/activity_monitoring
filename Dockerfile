@@ -16,6 +16,6 @@ COPY . .
 # Expose port 5000
 EXPOSE 5002
 
-# Run the FastAPI app
+# Run the Flask app factory
 CMD ["gunicorn", "--bind", "0.0.0.0:5002", "main:app"]
 
