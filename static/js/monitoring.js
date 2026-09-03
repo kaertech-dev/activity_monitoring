@@ -143,7 +143,12 @@ function buildApiUrl(baseUrl, customer = null, model = null, station = null) {
     if (dateFilters.start_date) params.append('start_date', dateFilters.start_date);
     if (dateFilters.end_date) params.append('end_date', dateFilters.end_date);
 
-    return `${baseUrl}?${params.toString()}`;
+    // The dashboard is currently served from port 80 while Flask listens on 5000.
+    // Keep same-origin requests unchanged when an explicit port or proxy is used.
+    const apiOrigin = window.location.port === ''
+        ? `${window.location.protocol}//${window.location.hostname}:5000`
+        : '';
+    return `${apiOrigin}${baseUrl}?${params.toString()}`;
 }
 
 // Function to populate dropdown with options
