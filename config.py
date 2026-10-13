@@ -14,9 +14,9 @@ class DatabaseConfig:
     """Database configuration management"""
     def __init__(self):
         self.config = {
-            'host': os.getenv('DB_HOST', '192.168.1.38'),
-            'user': os.getenv('DB_USER', 'readonly_user'),
-            'password': os.getenv('DB_PASSWORD', 'kts@tsd2025'),
+            'host': os.environ['DB_HOST'],
+            'user': os.environ['DB_USER'],
+            'password': os.environ['DB_PASSWORD'],
             'autocommit': True,
             'use_unicode': True,
             'charset': 'utf8mb4',
