@@ -5,6 +5,8 @@ services:
     build: .
     image: monitoring_v1            # builds and tags the image as monitoring_v1
     container_name: activity_monitoring
+    env_file:
+      - .env
     ports:
       - "5000:5000"
     restart: always
